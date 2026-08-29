@@ -1,0 +1,7 @@
+{
+  "//": "REFERENCE EXAMPLE — not auto-loaded. Claude Code does not apply a plugin's settings.json. To enable the experimental opt-in agent-teams mode, copy this env block into YOUR settings (~/.claude/settings.json or project .claude/settings.json) and restart. teammateMode 'in-process' means no split panes / no session resume unless you're in tmux/iTerm2. See README > Agent teams (experimental, opt-in).",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "teammateMode": "in-process"
+}

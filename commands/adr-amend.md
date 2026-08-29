@@ -1,0 +1,61 @@
+---
+description: Propose an ADR change (opens a PR to the ADR repo) when an ADR is wrong rather than your code. Needs an ADR submodule with a remote.
+argument-hint: <ADR-ID> <reason for override>
+---
+
+Launch the ADR amendment workflow for: $ARGUMENTS (ADR ID + reason for override).
+
+**When to use:** A reviewer flagged an ADR violation as a BLOCKER, and you believe the ADR itself needs updating rather than fixing the code.
+
+**What this does:**
+1. Reads the ADR and your code change
+2. Creates feature branch in ADR submodule
+3. Proposes amendment with your justification
+4. Opens PR in ADR repository — this PR **is** the log of the ADR change
+5. Marks the ADR `under-review` and sets a 14-day review-back date (in the PR / ADR status, not docs/decisions.md)
+
+**Requirements:**
+- ADR repository must be a git submodule (./adr/)
+- ADR submodule must have remote origin configured
+- You must provide clear business/technical justification
+
+**Usage:**
+
+```bash
+# Amend specific ADR
+/maat:adr-amend ADR-003 "S3 encryption requirement too strict for public static assets"
+
+# Interactive (will prompt for details)
+/maat:adr-amend ADR-007
+```
+
+**Workflow:**
+
+Launch the `adr-amender` agent with the ADR ID and user's stated reason. The agent will:
+- Verify ADR submodule state
+- Ask clarifying questions if justification is vague
+- Create amendment branch: `amend/adr-XXX-override-YYYYMMDD`
+- Update ADR with amendment proposal section
+- Commit and push to remote
+- Create PR with "adr-amendment" label and "needs-architect-review" label (the PR carries the rationale + review-back date)
+- Mark ADR as "under-review" in .maat-state.json
+
+**Important:**
+- This creates a **temporary override** — your code can proceed, but the amendment needs architect approval
+- If amendment rejected within 14 days, code must be reverted or fixed
+- Link your code PR and ADR PR together (agent will remind you)
+- The override/amendment is logged in the ADR amendment PR (the ADR-change log) — not in docs/decisions.md
+
+**Next steps after amendment:**
+1. Continue with your code change (it's temporarily allowed)
+2. Link the two PRs together
+3. Monitor ADR amendment status
+4. If approved: proceed to merge
+5. If rejected: revert code or fix to comply with ADR
+
+**Error cases:**
+- No ADR submodule: "Cannot amend — ADRs must be in git submodule"
+- Vague justification: Agent will ask specific questions
+- Code bug (not ADR issue): Agent will redirect to fix code instead
+
+End with the ADR amendment PR link and next action.

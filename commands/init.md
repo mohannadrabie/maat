@@ -1,0 +1,198 @@
+---
+description: Set up or verify the maat plugin in this project — project docs, ADR cache, risk tiers, GitHub board. Run first; pass --update to refresh plugin files after a plugin update.
+argument-hint: "[--update]   (no args = set up / verify; --update = refresh plugin-managed files)"
+---
+
+Verify the maat setup in this project — and scaffold it if missing.
+
+**Note:** This plugin can be installed through either Claude Code (`/plugin marketplace add https://github.com/mohannadrabie/maat.git` then `/plugin install maat@maat`) or GitHub Copilot (`copilot plugin marketplace add https://github.com/mohannadrabie/maat.git` then `copilot plugin install maat@maat`). This command scaffolds/verifies the per-project files.
+
+## Update mode — `$ARGUMENTS` contains `update`, `--update`, or `refresh`
+
+The plugin's slash commands/agents/hooks refresh when you update or reinstall the plugin in your agent client. But the files this command COPIED into the project (the ADR reporter + the doc templates) do **not** auto-refresh. Run `/…:init --update` to pull those forward after a plugin update — preserving everything you own.
+
+1. Locate the installed plugin's `$TPL` templates dir (the same bash as Step 1 below).
+2. **Refresh these plugin-managed files** from `$TPL` (and `$TPL/../scripts`): `docs/adr-cache.mjs`, `docs/decisions-archive.mjs`, `docs/dashboard.mjs`, `docs/PRINCIPLES.md`, `docs/adr-template.md`, `docs/manager-summary-format.md`, `docs/adr-cache-check.md`. For each that already exists **and differs** from the new version, first copy it to `<file>.bak` so a local edit is never lost silently, then overwrite.
+3. **Create-if-missing** (new files a project scaffolded earlier may lack, never overwrite an existing one): `docs/STATE.md`, `docs/backlog.md`, `docs/decisions-archive.md`.
+4. **Never touch what you own:** `maat.json`, `CLAUDE.md`, `docs/decisions.md`, `docs/decisions-archive.md`, `docs/REVIEW_LOG.md`, `docs/.maat-state.json`, `docs/reviews/`, and any existing `docs/STATE.md` / `docs/backlog.md`.
+5. Rebuild the catalog with the refreshed reporter: `node docs/adr-cache.mjs --build`.
+6. Report a short table — **refreshed · created · backed-up (.bak) · preserved** — then the single next action. Do NOT run the interactive setup below; update mode is refresh-only.
+
+## Verification Checks
+
+Run the following checks and report status:
+
+### 1. Plugin Loaded
+- If you can see this command, the plugin is loaded. No filesystem path check needed.
+- The plugin's own files live under the runtime-provided plugin root (`${PLUGIN_ROOT}` or `${CLAUDE_PLUGIN_ROOT}` depending on client) — never assume a specific install-cache path.
+
+### 2. Project Configuration Files
+Check for required files and report status:
+- ✅ / ❌ `docs/PRINCIPLES.md`
+- ✅ / ❌ `docs/decisions.md`
+- ✅ / ❌ `docs/decisions-archive.md`
+- ✅ / ❌ `docs/REVIEW_LOG.md`
+- ✅ / ❌ `docs/STATE.md`
+- ✅ / ❌ `docs/backlog.md`
+- ✅ / ❌ `docs/adr-template.md`
+- ✅ / ❌ `maat.json`
+- ✅ / ❌ `CLAUDE.md`
+
+### 3. ADR Configuration
+- Check if `./adr/` submodule exists OR a `docs/adr/` folder exists
+- Report ADR location and format recommendation (ADRs live in the ADR repo/folder — never in docs/decisions.md, which is the manager Decision Log)
+- Report the ADR cache state (`node docs/adr-cache.mjs` prints the `📊 ADR cache …` line and a `CACHE=HIT|MISS|NONE` tag)
+
+### 4. GitHub CLI
+- Check if `gh` is installed and authenticated (`gh auth status`)
+- Report whether the `repo` and `project` scopes are present — the board bootstrap in Step 3.5 needs both
+
+## Summary
+
+Present a summary table:
+```
+maat status
+━━━━━━━━━━━
+✅ Plugin loaded (/maat:* commands available)
+✅ Project configured
+✅ ADRs: ./adr/ submodule (cache HIT, 12 ADRs)
+✅ GitHub CLI ready (repo, project)
+
+Status: Ready to use
+```
+
+If anything is missing or misconfigured, show specific fix commands:
+```
+To fix:
+  • Missing config files: re-run /maat:init
+  • ADR cache cold: node docs/adr-cache.mjs --build
+```
+
+End with: "Run `/maat:ship 'your story'` to test the full workflow"
+
+## Step 1: Create directory structure and copy base templates
+
+Create docs/reviews/ if missing, then copy the base templates (never overwrite existing files).
+
+**Locate the plugin's templates directory first** — the runtime plugin-root vars are not reliably substituted inside command markdown, so resolve them in bash with fallbacks:
+
+```bash
+TPL="${PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/templates"
+[ -d "$TPL" ] || TPL=$(find "$HOME/.copilot/installed-plugins" "$HOME/.claude/plugins" "$HOME/.config/claude/plugins" -type d -path '*maat/templates' 2>/dev/null | head -1)
+if [ -z "$TPL" ] || [ ! -d "$TPL" ]; then
+  echo "Could not auto-locate this plugin's templates/ dir. Ask the human for the path to the installed plugin (or the cloned repo's templates dir) and use that as \$TPL; do not proceed without it."; exit 1
+fi
+```
+
+Then copy from `$TPL` into the project, skipping any that already exist: `docs/PRINCIPLES.md`, `docs/decisions.md`, `docs/decisions-archive.md`, `docs/REVIEW_LOG.md`, `docs/STATE.md`, `docs/backlog.md`, `docs/adr-template.md`, `docs/manager-summary-format.md`, and `docs/issue-template.md` (the portable Issue schema + token-efficient `gh` query cookbook — self-contained, no other-doc dependency, so it's also safe to hand to an agent outside this project). Also copy the scripts from `$TPL/../scripts`: `adr-cache.mjs` → `docs/adr-cache.mjs` (agents run it to show the `📊 ADR cache …` savings line), `decisions-archive.mjs` → `docs/decisions-archive.mjs` (the manager runs it at session handoff to sweep resolved decisions to the archive atomically), and `dashboard.mjs` → `docs/dashboard.mjs` (`node docs/dashboard.mjs` renders a local, gitignored agent/project-insights dashboard from `docs/REVIEW_LOG.md` + live `gh` data — see the README's "Viewing agent/project insights" section). Note `docs/.maat-state.json` is created automatically by /maat:story or /maat:ship — no need to copy it now. (`docs/conformance-triage.md` is produced on demand by the manager when ADRs change — not scaffolded.)
+
+**Gitignore the dashboard's generated output.** If the project has a `.gitignore`, append this line if not already present (never overwrite the file); if it has none, create one with just this line. Never commit `docs/dashboard.html` — it's regenerated by `node docs/dashboard.mjs`, local-only by design and never hosted; committing it would leak review/finding history into git history as a side effect of viewing it:
+```
+docs/dashboard.html
+```
+
+## Step 2: Interactive configuration
+
+**These are REQUIRED prompts, not suggestions.** For EACH question below you MUST call the `AskUserQuestion` tool and WAIT for the human's answer before continuing. Do **not** infer, assume, guess, default, or skip any of them, and do **not** treat the listed options as choices already made — the human decides every one. Only after you have a real answer for a question do you apply it. If the human explicitly declines/skips one, record that choice; never silently proceed past an unanswered question.
+
+Gather configuration:
+
+### Question 1: ADR Repository
+"Does your organization use a central ADR (Architecture Decision Records) repository?"
+- Options:
+  - "Yes" → Ask for the git URL, then suggest: `git submodule add <url> adr`
+  - "No" → ADRs will be tracked in a `docs/adr/` folder in this repo (one file per ADR, using the adr-template format)
+  - "Skip for now" → Can be added later with `git submodule add <url> adr` (or a `docs/adr/` folder)
+- **Multiple ADR folders (esp. fullstack):** `adr.dir` may be an **array** — the cache scans every root and merges them into one catalog. Before writing a single value, check whether the ADR location holds **per-domain subfolders** (e.g. `docs/adr/software-engineering/` and `docs/adr/infra/`, or `adr/infra/` and `adr/app/`). If it does — or if this is a fullstack project spanning both worlds — set `adr.dir` to the array of those subfolders, not the parent, so each domain's ADRs are captured explicitly and visibly. Example:
+  ```json
+  "adr": { "dir": ["docs/adr/infra", "docs/adr/app"] }
+  ```
+  After building, confirm the `--build` output shows a **non-zero count for every root** (e.g. `[…/infra:12, …/app:12]`); a `…:0` means that folder is empty or misnamed — fix it before proceeding rather than shipping with a domain silently uncovered.
+- Note: Recommend using the standardized ADR format from the installed plugin's `templates/adr-template.md` — it includes frontmatter with `applicableTo` domains and `constraints` that the implementer can parse directly into the catalog (massive token savings vs. reading full ADR bodies)
+
+### Question 2: ADR auto-sync
+"Should the ADR cache fast-forward the ADR submodule to its upstream tip before each build?"
+- Explain: OFF by default. When on, `--ensure`/`--build` runs `git merge --ff-only` on the submodule holding `adr.dir` so newly-published ADRs are picked up without updating the plugin. It fails soft (git absent, not a submodule, diverged branch) and is skipped entirely when `$CI` is set.
+- Trade-off: an auto-advance dirties the superproject tree, which collides with a clean-tree definition of done.
+- Options: "No (recommended)" or "Yes" → sets `adr.autoSync: true` (and optionally `adr.upstreamBranch`, default `main`)
+
+### Question 3: Agent Teams Mode
+"Enable experimental agent-teams mode for parallel team review on CRITICAL changes?"
+- Explain: OFF by default, everything works without it
+- If enabled: `/maat:review --team <scope>` on CRITICAL work
+- Trade-offs: experimental, no session resume for in-process teammates, split panes only in tmux/iTerm2
+- Options: "Yes" or "No (recommended for now)"
+
+## Step 3: Apply configuration
+
+1. Write `maat.json` with the collected values (at minimum `adr.dir` for your ADR location, plus `adr.autoSync` / `adr.upstreamBranch` if the human enabled sync).
+2. **Warm the ADR cache:** run `node docs/adr-cache.mjs --build` — it builds the catalog now (parsing both YAML-frontmatter and MADR ADRs) so the very first review is a HIT, not a cold MISS. No-op if no ADRs are present yet (they'll be built on first use).
+3. Create CLAUDE.md from template, substituting:
+   - {{ADR_LOCATION}} → "Architecture decisions tracked in `adr/` submodule" or "Architecture decisions tracked in `docs/adr/`"
+   - {{SENSITIVE_AREAS}} → the areas of this repo that should always draw a named reviewer (auth, payments, migrations, public API, IAM/network — whatever applies here), agreed with the human rather than assumed
+
+## Step 3.5: Bootstrap GitHub Project board + label taxonomy
+
+**Makes the GitHub-tracking setup permanent for every new project instead of a one-time migration someone has to remember to re-run against it later.** Idempotent throughout — check before create, every time, same discipline as the "Applying this migration to a project already in progress" section in CLAUDE.md. Skip this whole step, with a one-line note in the Step 4 summary ("GitHub bootstrap skipped: `gh` not installed"), if `gh` is not on PATH.
+
+1. **Gate on `gh` auth scopes — this hard-stops ONLY this bootstrap sub-step, never the rest of `/…:init`.**
+   ```bash
+   gh auth status 2>&1 | grep -q "'repo'" && gh auth status 2>&1 | grep -q "'project'" \
+     && echo "GH_SCOPES_OK" || echo "GH_SCOPES_MISSING"
+   ```
+   Matches the exact `'repo'`/`'project'` scope tokens the way `gh auth status` prints them (quoted, comma-separated in its `Token scopes:` line) — a bare substring match (`grep -qi 'repo'`) false-passes on a lesser `public_repo` scope, which cannot create a Project. If scopes are missing: **STOP here and flag it to the human plainly** — "GitHub Project bootstrap needs `repo` + `project` scopes on the current `gh` auth. Run `gh auth refresh -s project` (or re-`gh auth login` requesting both scopes), then re-run `/…:init` to pick this step up — everything else in this init run (config, templates, ADR cache) is unaffected and already applied." Do not silently skip it, and do not work around the missing scope (no labels-only fallback, no alternate auth path) — steps 3-4 below simply do not run this pass.
+
+2. **Resolve repo identity once — steps 3-4 below reuse `$OWNER`/`$PRODUCT`, never a literal placeholder:**
+   ```bash
+   OWNER=$(gh repo view --json owner -q '.owner.login')
+   PRODUCT=$(gh repo view --json name -q '.name')
+   ```
+   If either comes back empty (not inside a GitHub-hosted repo, `gh repo view` failed, etc.), **STOP and flag it to the human** the same way as the scope gate above — do not guess an owner or repo name.
+
+3. **Create the GitHub Project (v2), if it doesn't already exist.**
+   - Check first: `gh project list --owner "$OWNER" --format json -q ".projects[] | select(.title == \"$PRODUCT delivery board\") | .number"`. `gh`'s built-in `-q`/`--jq` flag filters the JSON itself (a Go-native implementation, no system `jq` dependency) — do not pipe to an external `jq`, which is not gated the way `gh`'s own PATH check is and is confirmed absent on real dev machines. If found, reuse its number — never create a second one.
+   - If not found: `gh project create --owner "$OWNER" --title "$PRODUCT delivery board"`.
+   - Custom fields — list existing fields first (`gh project field-list <number> --owner "$OWNER"`) and only create what's missing:
+     - `Status` (single-select): Backlog / Design / Blocked-on-owner / In Review / Building / Shipped / Declined
+     - `Feature ID` (single-select): populated from this new project's own feature/requirements list if one exists at init time (check common paths — `docs/requirements.md`, `docs/PRD.md`, `docs/roadmap.md`, `ROADMAP.md`, a non-placeholder `docs/backlog.md`; if one is found, confirm the extracted Feature ID list with the human via `AskUserQuestion` before writing it — never invent or auto-guess a taxonomy the project doesn't already state) — plus a catch-all `chore` option for non-feature work. **If no requirements list exists yet, create the field with just the catch-all option and leave it otherwise empty. Do not block Project/label creation on a requirements doc that doesn't exist yet, and do not invent placeholder Feature IDs to fill the field.**
+     - `Risk tier` (single-select): mirror this project's own tier vocabulary from `docs/PRINCIPLES.md` — default `TRIVIAL`/`STANDARD`/`CRITICAL` unless the project has renamed them.
+     - `Round count` (number, optional) — for challenger design-loop tracking.
+
+4. **Create labels, if they don't already exist** (check first: `gh label list --json name`): `blocked-on-owner`, `rule-16-stop` (or this project's own name for its loop-stop rule, per `docs/PRINCIPLES.md`, if it differs), and the verdict set — `verdict:go` / `verdict:no-go` (challenger's and the design council's own binary verdict — `agents/challenger.md`'s RECEIPT `verdict=go|no-go` and `commands/council.md`'s computed GO/NO-GO — applied to the code PR or issue a round was run against) and `verdict:conditional` / `verdict:reject` (taxonomy only, per this label set's own spec — no agent flow applies these automatically today; `agents/adr-amender.md`'s Recommendation checklist is free-text, not label-producing, and lives in the ADR submodule's own remote, not this repo. Available for a human to apply by hand when triaging, e.g. an ADR-amendment PR's outcome — don't remove them for lacking automation, and don't invent a false producer for them) — plus one label per Feature ID actually discovered in step 3 (none invented if no requirements list exists yet), plus the `chore` catch-all label matching step 3's `Feature ID` field catch-all option (create this one every time, even when no Feature IDs exist, since non-feature work still needs somewhere to land), plus `severity:high` / `severity:med` / `severity:low` (needed by the findings-as-bug-issues flow and by any backlog-to-issue migration that carries a stated severity forward — create all three up front rather than inventing them ad hoc the first time one is needed).
+
+5. **Milestones — only if a delivery-unit plan already exists at init time.** Check the same requirements/roadmap doc (if found in step 3) for a grouping bigger than a single feature (sprint/epic/phase/release) and any stated target dates. If one exists: create one Milestone per delivery unit, named and due-dated from the plan's own language — check first (`gh api repos/:owner/:repo/milestones`), skip any title that already exists, never invent a generic "Sprint 1/2/3" scheme the project's own plan doesn't use. **If no such plan exists yet, create no Milestones now** — leave this for the first `/…:story` (or equivalent) to create the relevant Milestone on demand once a real delivery unit is defined, rather than inventing a placeholder with no real content.
+
+6. Report a short table as part of Step 4's summary: Project created/reused, fields created/reused (per field), labels created/already-present, Milestones created/deferred-to-first-story, and — if gated at step 1 — the exact flagged message shown to the human.
+
+## Step 3.6: Safe backlog → Issues transition (in-progress projects only)
+
+**Only runs when Step 3.5 actually stood up the Project/labels** (skip entirely if that step was gated or skipped). This step exists because `/…:init` is not only ever run on a brand-new project — a project mid-stream, already relying on `docs/backlog.md` as its tracker, needs its existing items carried forward into Issues without losing or duplicating anything. A brand-new project (empty or placeholder `docs/backlog.md`) has nothing to migrate; this whole step is then a no-op, not a violation.
+
+1. **Detect whether there's anything to migrate.** Read `docs/backlog.md`. If it's absent, empty, or contains only the placeholder/template text — no migration, skip to Step 4. If it contains real dated/actionable entries, this is an in-progress project.
+2. **Never migrate silently — ask first.** `AskUserQuestion`: "docs/backlog.md has <N> item(s). Migrate them into GitHub Issues now (same board Step 3.5 just set up)?" Options: "Yes, migrate now" / "No, leave backlog.md as-is for now" / "Show me the items first". Proceed only on explicit yes — this mirrors the REQUIRED-prompt discipline in Step 2, not a default-yes convenience.
+3. **Migrate item by item, resume-safe.** For each backlog item not already annotated `[migrated → #N]`:
+   - Search first (`gh issue list --search "<item's distinctive text>" --json number,title`) to avoid a duplicate if a prior partial run already created it.
+   - If no match: create the Issue per `docs/issue-template.md`'s schema — the item's original text kept **verbatim** as the body's first line (never paraphrased or "cleaned up" — that would silently change the record), a comment noting `Migrated from docs/backlog.md, originally added <date if stated, else "date unknown">`, the `bug`/`feature`/`chore` type label best matching the item's own language, a `severity:*` label only if the item states one (never invent a severity the backlog text didn't have), `Status = Backlog` on the Project board.
+   - **Annotate the backlog.md line in place with `[migrated → #N]`, never delete the line.** The original text and its migration pointer both stay — this is the audit trail; `docs/backlog.md` becomes a historical record plus a pointer, not a candidate for a delete pass. This matches the existing project convention once migration is done: "`docs/backlog.md` is retired as a place to append new items — it now exists only as a pointer to the board plus a home for content that genuinely isn't Issue-shaped" (add this exact sentence to the top of `docs/backlog.md` if migrating for the first time and it isn't already there).
+4. **Leave non-Issue-shaped content alone.** `docs/STATE.md`'s narrative/handoff prose is explicitly NOT part of this migration — it's session-to-session context a query can't carry (PRINCIPLES.md rule 14), not a backlog of discrete items, and converting it into Issues would lose exactly the narrative connective tissue it exists to preserve. Don't touch it here.
+5. **Idempotent by construction.** A second run of this step only ever processes lines not yet annotated `[migrated → #N]` — re-running `/…:init` after an interrupted migration finishes the rest without touching what already landed.
+6. Report a short table as part of Step 4's summary: items found / migrated / already-migrated / skipped-by-human-choice, and the annotated `docs/backlog.md` diff summary (never a full paste of the file).
+
+## Step 4: Summarize setup
+
+Show the user:
+- Created files: docs/PRINCIPLES.md, docs/decisions.md, docs/decisions-archive.md, docs/REVIEW_LOG.md, maat.json, CLAUDE.md
+- ADR location + cache state
+- GitHub Project bootstrap outcome (Step 3.5): Project URL (created or reused), fields/labels created vs. already-present, Milestones created vs. deferred, or the flagged gh-scope message if gated
+- Next steps: "Try `/maat:ship 'add EKS cluster logging'` to test the full loop"
+
+## Workflow summary (for user)
+
+**The easy path is one command: `/maat:ship <story>`** — the **Manager (Alakazam) conducts** the whole loop (intake → plan → build → review → ship-check → **audit** → merge-handoff), invoking each agent, carrying results forward, and speaking to you at every gate — including at intake when a story is too vague to plan, and at the audit stage that verifies every agent actually did its job before handoff. Prefer it day to day. The individual commands remain for manual control:
+- `/maat:story` — intake-gates the story (intake-refiner catches vague ones), then plans + sets the risk tier (persisted for the rest of the loop)
+- `/maat:review` — tier's reviewers; closes with the Manager Summary
+- `/maat:debug` — diagnose a failure, minimal fix, evidence-first
+- `/maat:ship-check` — pre-merge verification
+- `/maat:manager` — deadlock ruling (same day)
+- `/maat:redteam` — adversarial review outside the tier machinery
+- `/maat:audit-reviewers` — monthly; grades the reviewers and the manager

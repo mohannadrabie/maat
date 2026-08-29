@@ -1,0 +1,15 @@
+{
+  "name": "maat",
+  "version": "0.1.0",
+  "owner": {
+    "name": "Mo"
+  },
+  "plugins": [
+    {
+      "name": "maat",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "A software engineering team for Claude Code: a Manager-orchestrated loop (intake → plan → build → review → ship-check → audit → merge-handoff) with specialist reviewer agents, slash commands, skills and an ADR token-cache. Installs in both Claude Code and GitHub Copilot."
+    }
+  ]
+}

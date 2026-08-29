@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node -e \"try{require('node:fs').accessSync('docs/adr-cache.mjs');require('node:child_process').execFileSync(process.execPath,['docs/adr-cache.mjs','--ensure'],{stdio:'inherit',timeout:10000})}catch(e){}\"", "timeout": 15 }] }
+    ]
+  }
+}

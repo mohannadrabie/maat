@@ -1,0 +1,19 @@
+{
+  "name": "maat",
+  "version": "0.1.0",
+  "description": "A software engineering team for Claude Code. A Manager (Alakazam) conducts the whole loop — intake → plan → build → review → ship-check → audit → merge-handoff — and is the single voice to you, routing each change to the right specialists by what it touches: architecture, code, network, security, appsec, api-contract, data-model, performance and consumer reviewers, plus a fullspectrum cross-domain pass, a red team, a challenger, an analyst, a test-writer, a debugger, a story-implementer, an intake-refiner and an ADR-amender. Ships as agents, slash commands and skills, with an ADR token-cache that keeps decision records in context cheaply. Works in Claude Code and GitHub Copilot.",
+  "author": {
+    "name": "Mo"
+  },
+  "keywords": [
+    "agents",
+    "workflow",
+    "orchestration",
+    "code-review",
+    "architecture",
+    "adr",
+    "testing",
+    "debugging",
+    "copilot"
+  ]
+}

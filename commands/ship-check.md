@@ -1,0 +1,23 @@
+---
+description: Pre-merge verification — real fmt/validate/lint/policy/plan, ADR compliance, fresh review reports, clean tree.
+argument-hint: "[branch]  (default: current branch)"
+---
+
+Pre-merge/deploy verification for: $ARGUMENTS (default: current branch).
+Read docs/.maat-state.json for the tier and requiredReviewers (reuse, don't re-derive). If absent, derive the tier from the branch diff and note that no /story ran.
+
+First, **`node docs/adr-cache.mjs --ensure`** (builds/refreshes the ADR catalog if stale). Then run and report REAL results (**skipped ≠ passed** — a check that didn't run is a fail, not a pass):
+1. **ADR Compliance (CRITICAL GATE — the whole-catalog pre-merge backstop).** Read `docs/.maat-state.json → adrCatalog` and check the diff against the **WHOLE** catalog, not a per-reviewer slice: reviewers only read their own lane's ADRs, so this is the gate that catches an out-of-lane collision (e.g. an API change violating a *data* ADR) that no single reviewer's slice covered. For each ADR APPLICABLE to changed files/domains — across every domain — check the diff against its **Rules for agents** (MUST/SHOULD):
+   - State: "ADR-XXX ({title}) - {quoted MUST/SHOULD rule}"
+   - Verify: diff complies? YES/NO
+   - **Any MUST violation = NOT SHIPPABLE.** Report: ADR ID, rule, violating file/line.
+2. **Definition of Done (from CLAUDE.md).** Every DoD item is met, or explicitly N/A with a reason. An unmet DoD item = NOT SHIPPABLE.
+3. **Mechanical hygiene:** build / fmt / validate / lint pass; tests pass with real counts (passed/failed/**skipped**), not "clean".
+4. **Plan/changeset:** generated; destructive changes listed explicitly.
+5. **Required reports + report bodies (pre-merge full read):** every review the tier required EXISTS in docs/reviews/ with a fresh date and carries **raw evidence**, not an empty pass. **Read each required report IN FULL** — not just its existence or its `RECEIPT:` line — and reconcile body-vs-receipt: every `[ISSUE]`/`[SUSPICION]` in the prose is reflected in the receipt's verdict and counts, and no finding described in the body was dropped from the receipt. This is the pre-merge backstop for the one thing a receipt cannot catch — a defect a reviewer worked out in its report but never surfaced in its receipt. `/ship` stage 5.5 does this within the loop; **ship-check must do it independently**, because a standalone `/review → /ship-check → merge` never runs the `/ship` loop, and ship-check is the command named "pre-merge verification" — nothing merges through it unread. A body-vs-receipt mismatch = NOT SHIPPABLE.
+6. **Truthfulness:** CHANGELOG / REVIEW_LOG.md / decisions.md / decisions-archive.md / STATE.md match reality (vs `git log`); any rows the handoff swept to the archive were resolved + past review-back and left no dangling superseded pointer.
+7. **Tree clean:** no uncommitted changes.
+
+**Persist the evidence.** Save the full pass/fail table + verdict verbatim to `docs/reviews/<scope>-shipcheck-<YYYY-MM-DD>.md`, with a `HEAD: <git rev-parse HEAD>` line so it's traceable to the exact commit checked (PRINCIPLES.md rule 10 — evidence, not claims); add a REVIEW_LOG row. The agent never merges (`git merge` / `gh pr merge` / a push to the default branch stay with the human, same as `terraform apply`) — so this artifact isn't what unlocks the merge. It's the record the human merging, and any CI/branch-protection check you wire up outside this plugin, can point to as proof a real pre-merge check happened for this commit.
+
+Output: pass/fail table → SHIPPABLE or NOT SHIPPABLE (with exact unlock per blocker, per PRINCIPLES.md rule 2) → single next action.

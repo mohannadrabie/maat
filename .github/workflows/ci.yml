@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin:
+    name: Plugin structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Validate manifests, frontmatter and generated surfaces
+        run: node scripts/validate-plugin.mjs
+
+      - name: Assert the Copilot surfaces are regenerated
+        # copilot-agents/, skills/, plugin.json and hooks.json are generated from
+        # agents/, commands/, .claude-plugin/plugin.json and hooks/hooks.json. A PR
+        # that edits a source without rerunning the generator fails here rather than
+        # shipping a plugin whose two clients disagree.
+        run: node scripts/sync-copilot-format.mjs --check
+
+      - name: Smoke-test the helper scripts
+        # These three are copied verbatim into consumer projects by /maat:init, so a
+        # syntax error in one of them breaks every project that updates. Parse each.
+        run: |
+          set -euo pipefail
+          for f in scripts/adr-cache.mjs scripts/decisions-archive.mjs scripts/dashboard.mjs scripts/sync-copilot-format.mjs scripts/validate-plugin.mjs; do
+            node --check "$f"
+            echo "ok: $f"
+          done
