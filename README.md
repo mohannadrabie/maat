@@ -12,7 +12,7 @@ Plans, tests, builds, reviews, debugs and prepares your change for merge — rou
 [![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-plugin-24292e.svg)](https://github.com/features/copilot)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
 
-[Quick start](#quick-start) · [The loop](#the-loop) · [Commands](#commands) · [Agents](#agents) · [Configuration](#configuration) · [Contributing](#contributing)
+[Quick start](#quick-start) · [The loop](#the-loop) · [ADR caching](#adr-caching--reviewers-share-one-read) · [Commands](#commands) · [Agents](#agents) · [Configuration](#configuration) · [Contributing](#contributing)
 
 </div>
 
@@ -137,16 +137,53 @@ Who reviews is decided by the risk tier, ratified by the Manager — you can cha
 
 ## What makes it different
 
-### ADRs as real constraints, not background reading
+### ADR caching — reviewers share one read
 
-Architecture Decision Records are usually too expensive to actually consult — reading every ADR body on every review burns the context you needed for the code. Maat builds a **compressed, lossless catalog**: per ADR it keeps the id, status, domain tags and the verbatim MUST/SHOULD rules, and drops the prose. Domain reviewers read only their slice; `fullspectrum-reviewer` reads the whole thing once.
+Architecture Decision Records are usually too expensive to actually consult: re-reading every ADR body on every review burns the context you needed for the code. Maat keeps a **compressed, lossless catalog** instead. Per ADR it stores `id`, `title`, `status`, `path`, the `applicableTo` domain tags and the **verbatim** MUST/SHOULD rules. The prose — Context, Consequences, Alternatives — stays in the file and `path` points back to it, so nothing a reviewer must obey is ever summarised away.
 
-```bash
-node docs/adr-cache.mjs          # status + CACHE=HIT|MISS|NONE
-node docs/adr-cache.mjs --build  # force a rebuild
+```mermaid
+flowchart TB
+    S["adr.dir<br/>in maat.json"] --> W["walk .md<br/>recursively"]
+    A["autoSync, opt-in<br/>git merge --ff-only"] -. "before the read" .-> W
+    W --> FP["fingerprint<br/>sha1 of path + bytes"]
+    FP --> Q{"same as the<br/>cached version?"}
+    Q -- "HIT: reuse in place" --> C[("adrCatalog<br/>docs/.maat-state.json")]
+    Q -- MISS --> P["parse each ADR<br/>id, status, tags, rules"]
+    P -- "atomic write" --> C
+    C --> R1["domain reviewer<br/>its applicableTo slice only"]
+    C --> R2["fullspectrum-reviewer<br/>the whole catalog"]
+
+    style S fill:#a5d8ff,stroke:#4a9eed,color:#1e1e1e
+    style A fill:#ffd8a8,stroke:#f59e0b,color:#1e1e1e,stroke-dasharray: 5 5
+    style W fill:#a5d8ff,stroke:#4a9eed,color:#1e1e1e
+    style FP fill:#fff3bf,stroke:#f59e0b,color:#1e1e1e
+    style Q fill:#ffffff,stroke:#06b6d4,color:#1e1e1e
+    style P fill:#d0bfff,stroke:#8b5cf6,color:#1e1e1e
+    style C fill:#c3fae8,stroke:#0e7490,color:#1e1e1e
+    style R1 fill:#b2f2bb,stroke:#22c55e,color:#1e1e1e
+    style R2 fill:#b2f2bb,stroke:#22c55e,color:#1e1e1e
 ```
 
-The plugin's one hook warms this cache at session start so the first review is a HIT, not a cold MISS. Every agent surfaces its `ADR cache …` line, so you can see what was reused.
+It parses both YAML frontmatter (`applicableTo`, `constraints`) and plain MADR markdown (a `**Tags:**` line plus a `## Rules for agents` bullet list), so it works against an existing ADR repo without reformatting it.
+
+| Command | Does | Writes? |
+|---|---|---|
+| `node docs/adr-cache.mjs` | Status line plus a machine tag: `CACHE=HIT` / `MISS` / `NONE` | no |
+| `node docs/adr-cache.mjs --ensure` | Rebuild **only if** stale or absent, then report | only when stale |
+| `node docs/adr-cache.mjs --build` | Force a rebuild now | yes |
+| `node docs/adr-cache.mjs --fingerprint` | Print the current fingerprint, nothing else | no |
+
+**Invalidation is a fingerprint, not a timestamp.** The catalog is keyed by a SHA-1 over every ADR file's path and bytes, sorted — any add, edit or delete flips it to MISS on the next run. There is no staleness window to tune and no clock to get wrong.
+
+**`--ensure` is what makes the fan-out cheap.** It is idempotent and safe to call from any agent or command: it checks first and writes only when a rebuild is actually needed. The Manager runs it once before spawning parallel reviewers so they all HIT instead of each rebuilding, and the plugin's single `SessionStart` hook runs it best-effort so a session's first review is already warm. Catalog writes go through a temp file and a rename, so concurrent agents cannot tear it.
+
+**Per-root coverage is visible.** `adr.dir` may be an array, and every status line reports a count per root — `[adr/infra:12, adr/app:0]` tells you the second domain folder is empty or misnamed instead of hiding it inside one merged total.
+
+**`autoSync` is off by default and fast-forward only.** When you turn it on, `--ensure` and `--build` run `git merge --ff-only` on the submodule holding your ADRs before fingerprinting, so newly published ADRs are picked up without updating the plugin. A branch that has diverged (unpushed local ADR commits) makes `--ff-only` fail — that is caught, reported, and the on-disk ADRs are used. It never rewrites history, and it is skipped entirely when `$CI` is set so headless runs review the pinned submodule SHA.
+
+**The savings figure is an estimate and says so.** Each HIT line reports roughly 500 tokens saved per reused ADR body, minus about 200 to read the catalog. It is a ballpark for the session handoff, not a bill — and if nothing was reused, agents are told to say so rather than invent a number.
+
+Every agent surfaces its own `ADR cache …` line, so you can see what was reused on each pass rather than taking it on trust.
 
 ### Receipts, not re-reads
 
