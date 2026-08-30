@@ -19,10 +19,12 @@
 // Fails soft: if `gh` isn't installed/authenticated, or REVIEW_LOG.md is missing/malformed, the
 // dashboard still renders with whatever data it has and says plainly what's missing — it never
 // throws out of the render.
-import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const REVIEW_LOG = "docs/REVIEW_LOG.md";
+const REVIEWS_DIR = "docs/reviews";
+const RUN_LOG = "docs/run-log.jsonl";
 const outIdx = process.argv.indexOf("--out");
 const OUT = outIdx > -1 && process.argv[outIdx + 1] ? process.argv[outIdx + 1] : "docs/dashboard.html";
 
@@ -153,13 +155,215 @@ function deriveGitHubStats(gh) {
   return { bySeverity, open, closed, bugCount, tracking };
 }
 
+
+
+// Report filenames carry a short slug, not the agent's name: `code-reviewer` writes
+// `<scope>-code-<date>.md`, `appsec-reviewer` writes `<scope>-appsec-<date>.md`. The run log, by
+// contrast, records the agent's real name because that is what the Manager knows it by. Without
+// this map the two never join and every per-agent Manager statistic silently reads zero, which is
+// worse than showing nothing. Derived from each agent definition's own persist instruction; an
+// unknown slug passes through unchanged rather than being dropped.
+const SLUG_TO_AGENT = {
+  code: "code-reviewer", architecture: "architecture-reviewer", security: "security-reviewer",
+  appsec: "appsec-reviewer", api: "api-reviewer", data: "data-reviewer",
+  network: "network-reviewer", performance: "performance-reviewer", consumer: "consumer-reviewer",
+  fullspectrum: "fullspectrum-reviewer", redteam: "redteam", challenger: "challenger",
+  analyst: "analyst", "analyst-exposure": "analyst", "test-writer": "test-writer",
+  debug: "debugger", shipcheck: "ship-check",
+};
+const agentOf = slug => SLUG_TO_AGENT[slug] || slug;
+
+// ---------- 2b. RECEIPT blocks in docs/reviews/*.md (quality, not just volume) ----------
+// Thirteen agents already close every report with a structured RECEIPT carrying the verdict, the
+// complete finding list with severities, a counts checksum, an evidence-tier breakdown and the raw
+// pass/fail/skip of whatever ran. That is the quality signal, and it is already on disk — this
+// parses it rather than asking anyone to log it a second time. A report with no receipt is counted
+// as exactly that (`noReceipt`), because a missing receipt is itself a finding the audit wants.
+function readReceipts() {
+  let files = [];
+  try { files = readdirSync(REVIEWS_DIR).filter(f => f.endsWith(".md")); }
+  catch { return { reports: [], note: `${REVIEWS_DIR}/ not found — no receipt data.` }; }
+
+  const reports = [];
+  for (const f of files) {
+    let text = "";
+    try { text = readFileSync(`${REVIEWS_DIR}/${f}`, "utf8"); } catch { continue; }
+
+    // Agent and date come from the filename convention <scope>-<agent>-<YYYY-MM-DD>.md, which every
+    // agent is told to use. A file that does not match still counts toward totals, as "unknown".
+    const nm = f.match(/^(.*)-([a-z]+(?:-[a-z]+)*)-(\d{4}-\d{2}-\d{2})\.md$/);
+    const rec = {
+      file: f,
+      scope: nm ? nm[1] : f.replace(/\.md$/, ""),
+      agent: nm ? agentOf(nm[2]) : "unknown",
+      date: nm ? nm[3] : "",
+      isMetaAudit: /^meta-audit-/.test(f),
+      hasReceipt: false,
+      verdict: "", issues: 0, suspicions: 0, clean: 0,
+      high: 0, med: 0, low: 0,
+      demonstrated: 0, codeTraced: 0, derived: 0,
+      checks: "", ranNothing: false, adr: "",
+    };
+
+    const rm = text.match(/RECEIPT:\s*(?:mode=\S+\s+)?verdict=([^\s|]+)/i);
+    if (rm) { rec.hasReceipt = true; rec.verdict = rm[1].replace(/[<>]/g, "").trim(); }
+
+    const counts = text.match(/counts[^\n]*?issues=(\d+)\s+suspicions=(\d+)\s+clean=(\d+)/i);
+    if (counts) { rec.issues = +counts[1]; rec.suspicions = +counts[2]; rec.clean = +counts[3]; }
+
+    const ev = text.match(/evidence:\s*demonstrated=(\d+)\s+code-traced=(\d+)\s+derived=(\d+)/i);
+    if (ev) { rec.demonstrated = +ev[1]; rec.codeTraced = +ev[2]; rec.derived = +ev[3]; }
+
+    // Severity tags are counted from the receipt's own finding lines, not the prose above them.
+    const receiptBody = text.slice(text.search(/RECEIPT:/i));
+    rec.high = (receiptBody.match(/\[HIGH\]/g) || []).length;
+    rec.med = (receiptBody.match(/\[MED\]/g) || []).length;
+    rec.low = (receiptBody.match(/\[LOW\]/g) || []).length;
+
+    const ck = receiptBody.match(/checks=([^\n]*)/i);
+    if (ck) {
+      rec.checks = ck[1].trim().replace(/[`"]/g, "").slice(0, 40);
+      rec.ranNothing = /^n\/a/i.test(rec.checks);
+    }
+    const adr = receiptBody.match(/adr=(HIT|MISS|NONE)/i);
+    if (adr) rec.adr = adr[1].toUpperCase();
+
+    // A template's own placeholder receipt would poison the numbers; skip anything still carrying
+    // the angle-bracket placeholders the agent definitions use as examples.
+    if (rec.verdict.startsWith("<") || /<n>/.test(receiptBody.slice(0, 400))) rec.hasReceipt = false;
+
+    reports.push(rec);
+  }
+  return { reports, note: null };
+}
+
+// Per-agent VOLUME and QUALITY. Volume is how much it produced; quality is whether what it produced
+// was anchored in something that ran. The two most useful columns are `derived%` (findings reasoned
+// from a document rather than the system — those cannot gate, per rule 19) and `ran nothing`, both
+// of which a high-volume agent can quietly drift into.
+function deriveAgentQuality(reports, runLog) {
+  const m = new Map();
+  for (const r of reports) {
+    if (r.isMetaAudit) continue;
+    const k = r.agent;
+    if (!m.has(k)) m.set(k, {
+      agent: k, reports: 0, noReceipt: 0, findings: 0, high: 0, med: 0, low: 0, cleanRuns: 0,
+      demonstrated: 0, codeTraced: 0, derived: 0, ranNothing: 0, adrHit: 0, reopened: 0, triagedDown: 0,
+    });
+    const a = m.get(k);
+    a.reports++;
+    if (!r.hasReceipt) { a.noReceipt++; continue; }
+    a.findings += r.issues + r.suspicions;
+    a.high += r.high; a.med += r.med; a.low += r.low;
+    if (r.issues === 0 && r.suspicions === 0) a.cleanRuns++;
+    a.demonstrated += r.demonstrated; a.codeTraced += r.codeTraced; a.derived += r.derived;
+    if (r.ranNothing) a.ranNothing++;
+    if (r.adr === "HIT") a.adrHit++;
+  }
+  // The Manager's own judgements, which no receipt can carry: how often this agent's receipt did
+  // not hold up, and how often its HIGH was triaged down as over-called.
+  for (const [agent, n] of Object.entries(runLog.reopensByAgent || {})) {
+    if (m.has(agent)) m.get(agent).reopened = n;
+  }
+  for (const [agent, n] of Object.entries(runLog.triagedByAgent || {})) {
+    if (m.has(agent)) m.get(agent).triagedDown = n;
+  }
+  return [...m.values()].sort((a, b) => b.reports - a.reports);
+}
+
+// ---------- 2c. run-log.jsonl (the Manager's judgements) ----------
+function readRunLog() {
+  const empty = { available: false, entries: 0, byEvent: {}, reopensByAgent: {}, triagedByAgent: {}, tiers: { ratified: 0, changed: 0 }, council: {}, recent: [] };
+  if (!existsSync(RUN_LOG)) return { ...empty, note: `${RUN_LOG} not found — no Manager-decision data yet.` };
+  let text = "";
+  try { text = readFileSync(RUN_LOG, "utf8"); } catch { return { ...empty, note: `${RUN_LOG} unreadable.` }; }
+
+  const rows = [];
+  for (const line of text.split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s) continue;
+    try { const o = JSON.parse(s); if (o && typeof o === "object") rows.push(o); } catch {}
+  }
+  const out = { ...empty, available: true, note: null, entries: rows.length, recent: rows.slice(-15).reverse() };
+  out.byEvent = {}; out.reopensByAgent = {}; out.triagedByAgent = {}; out.council = {};
+  out.tiers = { ratified: 0, changed: 0 };
+  for (const r of rows) {
+    out.byEvent[r.event] = (out.byEvent[r.event] || 0) + 1;
+    if (r.event === "receipt-reopened" && r.agent) { const a = agentOf(r.agent); out.reopensByAgent[a] = (out.reopensByAgent[a] || 0) + 1; }
+    if (r.event === "severity-triaged" && r.agent) { const a = agentOf(r.agent); out.triagedByAgent[a] = (out.triagedByAgent[a] || 0) + 1; }
+    if (r.event === "tier-ratified") { out.tiers.ratified++; if (String(r.changed) === "true") out.tiers.changed++; }
+    if (r.event === "council" && r.verdict) out.council[r.verdict] = (out.council[r.verdict] || 0) + 1;
+  }
+  return out;
+}
+
+// ---------- 2d. feature progress ----------
+// Rolls Issues up by Feature ID label. Which labels those ARE is a per-project taxonomy, so this
+// infers them rather than hard-coding: any label that is not one of the schema's own reserved
+// prefixes is treated as a feature. An issue carrying none lands in "(unlabelled)", which is
+// itself worth seeing — untracked work is the thing a progress view is supposed to surface.
+const RESERVED = /^(bug|feature|chore|story|severity:|verdict:|blocked-on-owner|current-focus|rule-16-stop|needs:|arch:|oversized|adr-amendment|needs-architect-review|documentation|duplicate|enhancement|good first issue|help wanted|invalid|question|wontfix)/i;
+function deriveFeatureProgress(gh) {
+  const feats = new Map();
+  for (const iss of gh.issues || []) {
+    const names = (iss.labels || []).map(l => l.name);
+    let keys = names.filter(n => !RESERVED.test(n));
+    if (!keys.length) keys = ["(unlabelled)"];
+    for (const k of keys) {
+      if (!feats.has(k)) feats.set(k, { feature: k, open: 0, closed: 0, bugs: 0, high: 0 });
+      const f = feats.get(k);
+      if (iss.state === "OPEN") f.open++; else f.closed++;
+      if (names.includes("bug")) f.bugs++;
+      if (names.includes("severity:high")) f.high++;
+    }
+  }
+  return [...feats.values()]
+    .map(f => ({ ...f, total: f.open + f.closed, pct: f.open + f.closed ? Math.round((f.closed / (f.open + f.closed)) * 100) : 0 }))
+    .sort((a, b) => b.total - a.total);
+}
+
+// ---------- 2e. audit highlights ----------
+// /maat:audit-reviewers writes a credibility scorecard and one process finding to
+// docs/reviews/meta-audit-<date>.md every month, and until now nothing read those files.
+function deriveAuditHighlights(reports) {
+  const metas = reports.filter(r => r.isMetaAudit).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (!metas.length) return { available: false, note: "No meta-audit report found. Run /maat:audit-reviewers to produce one.", latest: null, scorecard: [], processFinding: "", all: [] };
+
+  const latest = metas[0];
+  let text = "";
+  try { text = readFileSync(`${REVIEWS_DIR}/${latest.file}`, "utf8"); } catch {}
+
+  // The scorecard's own vocabulary, per audit-reviewers.md step 3.
+  const scorecard = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/([a-z][a-z-]{2,})[^\n]*?\b(IMPROVING|STEADY|DEGRADING)\b/i);
+    if (!m) continue;
+    // A scorecard row is usually a markdown table row (agent | grade | behaviour to change). Show
+    // only the behaviour: the agent and grade already have their own columns, and repeating them
+    // makes the note unreadable.
+    let note = line;
+    if (/^\s*\|/.test(line)) {
+      const cells = cellsOf(line).filter(Boolean);
+      note = cells.length > 2 ? cells.slice(2).join(" · ") : cells[cells.length - 1] || "";
+    }
+    scorecard.push({ agent: m[1].toLowerCase(), grade: m[2].toUpperCase(), line: note.replace(/^[\s|*\-]+/, "").slice(0, 180) });
+  }
+  const pf = text.match(/process finding[^\n]*[:\n]([\s\S]{0,400})/i);
+  return {
+    available: true, note: null, latest,
+    scorecard: scorecard.slice(0, 20),
+    processFinding: pf ? pf[1].trim().split(/\n\s*\n/)[0].slice(0, 400) : "",
+    all: metas.slice(0, 6),
+  };
+}
+
 // ---------- 4. Render ----------
 function bar(count, max) {
   const pct = max > 0 ? Math.max(2, Math.round((count / max) * 100)) : 0;
   return `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>`;
 }
 
-function render({ generatedAt, reviewLogNote, rows, stats, gh, ghStats }) {
+function render({ generatedAt, reviewLogNote, rows, stats, gh, ghStats, quality, runLog, features, audit, receiptNote }) {
   const totalRows = rows.length;
   const maxVerdict = Math.max(1, ...[...stats.verdictMix.values()]);
   const maxAgent = Math.max(1, ...[...stats.perAgent.values()]);
@@ -200,6 +404,61 @@ function render({ generatedAt, reviewLogNote, rows, stats, gh, ghStats }) {
     ? `Source: <span class="mono">gh issue list</span> / <span class="mono">gh api repos/${esc(gh.repo)}/milestones</span>, queried locally at generation time. Nothing here was fetched by the page itself.`
     : esc(gh.note || "gh CLI unavailable.");
 
+
+  // ----- feature progress -----
+  const featureRows = features.length
+    ? features.map(f => `<tr><td>${esc(f.feature)}</td><td class="num">${f.closed}</td><td class="num">${f.open}</td><td class="num">${f.bugs}</td><td class="num">${f.high}</td><td>${bar(f.closed, Math.max(1, f.total))}<span class="mono"> ${f.pct}%</span></td></tr>`).join("\n")
+    : `<tr><td colspan="6">${gh.available ? "No Issues to roll up yet." : "GitHub data unavailable this run."}</td></tr>`;
+
+  // ----- agent volume + quality -----
+  const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) : 0;
+  const qualityRows = quality.length
+    ? quality.map(a => {
+        const ev = a.demonstrated + a.codeTraced + a.derived;
+        const derivedPct = pct(a.derived, ev);
+        const cleanPct = pct(a.cleanRuns, a.reports);
+        // Flags are advisory. Each names a pattern the monthly audit is told to look for, so the
+        // dashboard surfaces the candidate and a human decides — it never grades anyone itself.
+        const flags = [];
+        if (a.noReceipt) flags.push(`<span class="flag bad">${a.noReceipt} no receipt</span>`);
+        if (a.ranNothing) flags.push(`<span class="flag warn">${a.ranNothing} ran nothing</span>`);
+        if (ev >= 5 && derivedPct >= 50) flags.push(`<span class="flag warn">${derivedPct}% derived</span>`);
+        if (a.reopened) flags.push(`<span class="flag bad">${a.reopened} reopened</span>`);
+        if (a.triagedDown) flags.push(`<span class="flag warn">${a.triagedDown} triaged down</span>`);
+        if (a.reports >= 4 && a.cleanRuns === 0) flags.push(`<span class="flag warn">never clean</span>`);
+        return `<tr>
+          <td>${esc(a.agent)}</td>
+          <td class="num">${a.reports}</td>
+          <td class="num">${a.findings}</td>
+          <td class="num">${a.high}/${a.med}/${a.low}</td>
+          <td class="num">${cleanPct}%</td>
+          <td class="num">${ev ? `${pct(a.demonstrated + a.codeTraced, ev)}%` : "—"}</td>
+          <td class="num">${pct(a.adrHit, a.reports)}%</td>
+          <td>${flags.join(" ") || `<span class="flag ok">clean</span>`}</td>
+        </tr>`;
+      }).join("\n")
+    : `<tr><td colspan="8">No parseable RECEIPT blocks in docs/reviews/ yet.</td></tr>`;
+
+  // ----- audit highlights -----
+  const scorecardRows = audit.available && audit.scorecard.length
+    ? audit.scorecard.map(s => `<tr><td>${esc(s.agent)}</td><td><span class="flag ${s.grade === "DEGRADING" ? "bad" : s.grade === "IMPROVING" ? "ok" : ""}">${esc(s.grade)}</span></td><td>${esc(s.line)}</td></tr>`).join("\n")
+    : `<tr><td colspan="3">${esc(audit.note || "No credibility grades parsed from the latest meta-audit.")}</td></tr>`;
+
+  const runLogRows = runLog.available && runLog.recent.length
+    ? runLog.recent.map(r => {
+        const detail = Object.entries(r).filter(([k]) => !["at", "event", "_incomplete"].includes(k))
+          .map(([k, v]) => `${esc(k)}=${esc(String(v))}`).join(" · ");
+        return `<tr><td class="mono">${esc((r.at || "").slice(0, 10))}</td><td>${esc(r.event || "")}</td><td class="mono">${detail}</td></tr>`;
+      }).join("\n")
+    : `<tr><td colspan="3">${esc(runLog.note || "No Manager decisions logged yet.")}</td></tr>`;
+
+  const runLogTiles = runLog.available
+    ? `<div class="tile"><div class="k">Tiers ratified</div><div class="v">${runLog.tiers.ratified}</div><div class="s">${runLog.tiers.changed} changed from proposed</div></div>
+       <div class="tile"><div class="k">Receipts reopened</div><div class="v">${runLog.byEvent["receipt-reopened"] || 0}</div><div class="s">a receipt that did not hold up</div></div>
+       <div class="tile"><div class="k">Findings triaged down</div><div class="v">${runLog.byEvent["severity-triaged"] || 0}</div><div class="s">HIGH judged narrow enough to ship with</div></div>
+       <div class="tile"><div class="k">Councils</div><div class="v">${(runLog.council.GO || 0) + (runLog.council["NO-GO"] || 0)}</div><div class="s">${runLog.council.GO || 0} GO · ${runLog.council["NO-GO"] || 0} NO-GO</div></div>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -212,6 +471,11 @@ function render({ generatedAt, reviewLogNote, rows, stats, gh, ghStats }) {
     --accent:#5b8cff; --ok:#3fbf7f; --warn:#e0b84a; --bad:#e0605a;
   }
   *{box-sizing:border-box;}
+  .flag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;border:1px solid var(--border);color:var(--muted);white-space:nowrap;}
+  .flag.ok{color:var(--ok);border-color:var(--ok);}
+  .flag.warn{color:var(--warn);border-color:var(--warn);}
+  .flag.bad{color:var(--bad);border-color:var(--bad);}
+  .note{color:var(--muted);font-size:13px;max-width:80ch;line-height:1.55;}
   body{
     margin:0; padding:2rem; background:var(--bg); color:var(--text);
     font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; font-size:14px; line-height:1.5;
@@ -261,6 +525,26 @@ function render({ generatedAt, reviewLogNote, rows, stats, gh, ghStats }) {
   <table><thead><tr><th>Verdict</th><th class="num">Count</th><th></th></tr></thead>
   <tbody>${verdictRows || `<tr><td colspan="3">No rows.</td></tr>`}</tbody></table>
 
+  <h2>Feature progress <span class="badge">Issues rolled up by feature label</span></h2>
+  <table><thead><tr><th>Feature</th><th class="num">Closed</th><th class="num">Open</th><th class="num">Bugs</th><th class="num">High</th><th>Done</th></tr></thead>
+  <tbody>${featureRows}</tbody></table>
+
+  <h2>Agent performance <span class="badge">volume + quality, parsed from RECEIPT blocks</span></h2>
+  <p class="note">Volume is what an agent produced. Quality is whether it was anchored in something that ran: <span class="mono">executed%</span> is the share of its findings backed by <span class="mono">demonstrated</span> or <span class="mono">code-traced</span> evidence rather than reasoned from a document, and only those two can gate a change. Flags name a pattern worth a look, not a verdict — a clean run is a good outcome, and an agent that is <em>never</em> clean is as much a signal as one that always is.</p>
+  <table><thead><tr><th>Agent</th><th class="num">Reports</th><th class="num">Findings</th><th class="num">H/M/L</th><th class="num">Clean runs</th><th class="num">Executed%</th><th class="num">ADR hit</th><th>Flags</th></tr></thead>
+  <tbody>${qualityRows}</tbody></table>
+
+  <h2>Audit highlights <span class="badge">from the latest meta-audit</span></h2>
+  ${audit.available ? `<p class="note">Latest: <span class="mono">docs/reviews/${esc(audit.latest.file)}</span>${audit.processFinding ? `<br><strong>Process finding:</strong> ${esc(audit.processFinding)}` : ""}</p>` : ""}
+  <table><thead><tr><th>Agent</th><th>Grade</th><th>Note</th></tr></thead>
+  <tbody>${scorecardRows}</tbody></table>
+
+  <h2>Manager decisions <span class="badge">docs/run-log.jsonl</span></h2>
+  <p class="note">The judgements no receipt can carry: which receipts did not hold up, which findings were triaged down and on what exposure, which tier was ratified against what was proposed, how a deadlock or council resolved. Telemetry only — nothing reads this to block anything.</p>
+  <div class="tiles">${runLogTiles}</div>
+  <table><thead><tr><th>Date</th><th>Event</th><th>Detail</th></tr></thead>
+  <tbody>${runLogRows}</tbody></table>
+
   <h2>Per-agent finding counts</h2>
   <table><thead><tr><th>Agent</th><th class="num">Rows</th><th></th></tr></thead>
   <tbody>${agentRows || `<tr><td colspan="3">No rows.</td></tr>`}</tbody></table>
@@ -307,11 +591,16 @@ function main() {
   const stats = deriveStats(rows);
   const gh = readGitHub();
   const ghStats = deriveGitHubStats(gh);
+  const { reports, note: receiptNote } = readReceipts();
+  const runLog = readRunLog();
+  const quality = deriveAgentQuality(reports, runLog);
+  const features = deriveFeatureProgress(gh);
+  const audit = deriveAuditHighlights(reports);
 
   const html = render({
     generatedAt: new Date().toISOString(),
-    reviewLogNote,
-    rows, stats, gh, ghStats,
+    reviewLogNote, receiptNote,
+    rows, stats, gh, ghStats, quality, runLog, features, audit,
   });
 
   const tmp = OUT + "." + process.pid + ".tmp";
@@ -320,6 +609,9 @@ function main() {
 
   process.stdout.write(`📈 dashboard: wrote ${OUT} — ${rows.length} review-log row(s), ${stats.perAgent.size} agent(s), ${ghStats.bugCount} bug issue(s), ${gh.milestones.length} milestone(s). Open the file directly (file://) — nothing is hosted.\n`);
   if (reviewLogNote) process.stdout.write(`   note: ${reviewLogNote}\n`);
+  if (receiptNote) process.stdout.write(`   note: ${receiptNote}\n`);
+  if (runLog.note) process.stdout.write(`   note: ${runLog.note}\n`);
+  if (!audit.available) process.stdout.write(`   note: ${audit.note}\n`);
   if (!gh.available) process.stdout.write(`   note: ${gh.note}\n`);
 }
 

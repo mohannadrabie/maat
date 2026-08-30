@@ -378,6 +378,8 @@ your-project/
 │   ├── adr-cache.mjs            # the ADR token-cache
 │   ├── decisions-archive.mjs    # atomic decision-log sweeper
 │   ├── dashboard.mjs            # local insights dashboard
+│   ├── run-log.mjs              # appends the Manager's judgements to run-log.jsonl
+│   ├── run-log.jsonl            # append-only record of those judgements (committed)
 │   ├── .maat-state.json         # tier, ADR catalog, loop state
 │   └── reviews/                 # dated review evidence
 └── adr/  or  docs/adr/
@@ -409,17 +411,45 @@ Everything lives in `maat.json` at your repo root:
 
 ---
 
-## Viewing insights
+## The dashboard
 
-`/maat:init` copies `dashboard.mjs` into your project. It renders a local HTML view of review verdicts and findings from `docs/REVIEW_LOG.md` plus live `gh` data:
+`/maat:init` copies `dashboard.mjs` into your project. It renders one self-contained HTML file with no CDN, no web fonts and no external calls, so nothing about your project leaves the machine:
 
 ```bash
-node docs/dashboard.mjs
+node docs/dashboard.mjs                    # writes docs/dashboard.html
+node docs/dashboard.mjs --out /tmp/x.html
 ```
 
-`docs/dashboard.html` is generated, local-only and never hosted — keep it gitignored, which `/maat:init` sets up for you.
+| Panel | Answers | Read from |
+|---|---|---|
+| **Feature progress** | How far is each feature, and where are the bugs concentrated? | Issues rolled up by feature label, closed vs open |
+| **Agent performance** | Volume *and* quality, per agent | The `RECEIPT:` block in every `docs/reviews/*.md` |
+| **Audit highlights** | Who is improving or degrading, and this month's one process finding | The latest `docs/reviews/meta-audit-*.md` |
+| **Manager decisions** | Tiers ratified, receipts reopened, findings triaged down, councils and their verdicts | `docs/run-log.jsonl` |
+| Verdict mix, rounds per story, recent reviews, Issues and Milestones | The shape of the work | `docs/REVIEW_LOG.md` plus live `gh` queries |
 
----
+**Volume is easy; quality is the point.** Per agent you get reports, findings and an H/M/L split, then the columns that actually matter: **clean-run rate** (a reviewer that is never clean is manufacturing findings, and rule 4 says a verified clean pass is the goal), **executed%** (the share of findings backed by `demonstrated` or `code-traced` evidence rather than reasoned from a document, since only those two can gate a change), and **ADR hit rate**. Flags call out exactly the patterns the monthly audit is told to hunt: a report with no receipt at all, a run where the agent executed nothing, a majority-`derived` evidence mix, a receipt the Manager had to reopen, and a HIGH that got triaged down as over-called.
+
+None of it grades anyone. It surfaces the candidate and a human decides, the same division of labour `/maat:audit-reviewers` already uses.
+
+### The run log
+
+Most of the above needed no new logging: the receipts were already on disk and nothing was reading them. One thing genuinely was not recorded anywhere mechanical, and that is **the Manager's own judgement**. Which receipts did not hold up. Which HIGH was triaged down, and on what verified exposure. Which tier was ratified against what was proposed. How a deadlock or a council resolved. All of it lived only in prose.
+
+`docs/run-log.jsonl` is that gap, and nothing more:
+
+```bash
+node docs/run-log.mjs --summary                    # aggregate counts
+node docs/run-log.mjs --summary --since 2026-08-01
+node docs/run-log.mjs --json                       # same, machine-readable
+```
+
+- **Append-only JSON Lines**, one object per line, never rewritten. Parallel agents append concurrently, and a single-line append has none of the read-modify-write races a JSON array or a markdown table would. It matches rule 11: records are immutable, corrections are appended.
+- **A pointer, not a copy.** Ids, paths, enums and numbers, with a length cap. Never a finding's prose; the report is linked instead.
+- **Committed**, like `REVIEW_LOG.md` and `docs/reviews/`, because it is part of the audit trail. Only the generated `dashboard.html` is gitignored.
+- **Telemetry, not a gate.** Nothing reads it to block, refuse or unlock anything, and nothing should. The event vocabulary is closed so the numbers stay aggregatable, an unknown event is refused rather than silently recorded, and every failure path exits 0 so a logging problem can never take down a real run.
+
+`/maat:audit-reviewers` now opens with these numbers and uses them to choose what to sample, instead of picking six reports at random.
 
 ## Agent teams (experimental, opt-in)
 
