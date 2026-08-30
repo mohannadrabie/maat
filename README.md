@@ -108,7 +108,7 @@ flowchart LR
     style Y fill:#ffc9c9,stroke:#ef4444,color:#1e1e1e
 ```
 
-<sub>Dashed = conditional. You decide at three points: **Plan** (approve it), **Review** (a REWORK or BLOCKER stops the loop), and the **merge** itself — which is always yours.</sub>
+<sub>Dashed = conditional. You decide at three points: **Plan** (approve it), **Review** (a REWORK or BLOCKER stops the loop), and the **merge** itself, which is always yours. The diagram is the shape; the table below is the complete stage list.</sub>
 
 | Stage | What happens | Where it stops for you |
 |---|---|---|
@@ -116,10 +116,22 @@ flowchart LR
 | **Plan** | `story-implementer` (Phase 1) plans and proposes a risk tier the Manager ratifies | You approve the plan before anything is built |
 | **Test-first** | `test-writer` writes black-box acceptance tests and confirms them red | Conditional — runs only when the plan introduces a new or changed UI/API surface |
 | **Build** | `story-implementer` (Phase 2) implements against those failing tests | — |
-| **Review** | The tier's reviewers run in parallel and persist dated reports | REWORK, a BLOCKER or an ADR violation stops the loop with its named unlock |
+| **Review** | The tier's reviewers run in parallel and persist dated reports | REWORK, a BLOCKER or an ADR violation stops the loop with its named unlock. Narrow findings are triaged first, so not every HIGH stops you |
 | **Ship-check** | Real checks, ADR compliance, fresh reports read in full, clean tree | SHIPPABLE or NOT SHIPPABLE, with the exact unlock per blocker |
 | **Audit** | Verifies every agent actually did the work its receipt claims | A shirked step is a blocker, named in the summary |
+| **Pre-merge read** | Every report the loop only trusted by its receipt gets one full read before anything is called shippable | A body-vs-receipt discrepancy is a blocker, not a nit |
 | **Merge handoff** | Manager Summary + session handoff + a commit | **You** merge. Always. |
+
+### Not every HIGH stops you
+
+A reviewer reports; it does not get the last word on whether a narrow finding stalls the loop. Before the Manager presents any blocker, it triages:
+
+- **Security, data-integrity, legal and safety findings never triage down.** They go straight to you.
+- Everything else is read against the finding's own mandatory `Exposure: ~N% of <users|requests|runs>, basis: measured|counted-in-code|assumption` line.
+- An `assumption` basis, or a missing exposure line, escalates to the `analyst` for a real mechanical count rather than going back to the reviewer that guessed. The finding stays blocking while that runs.
+- Under 3% of users, non-exempt, with a real basis, becomes a condition on the ship rather than a stop, with the reasoning stated in one line.
+
+A downgraded finding is still reported. Triage decides whether it blocks, never whether you see it.
 
 ### Ceremony scales with risk
 
@@ -166,6 +178,13 @@ flowchart TB
 
 It parses both YAML frontmatter (`applicableTo`, `constraints`) and plain MADR markdown (a `**Tags:**` line plus a `## Rules for agents` bullet list), so it works against an existing ADR repo without reformatting it.
 
+**ADRs can live in two places, and the difference matters when you amend one.** `adr.dir` defaults to `["adr", "docs/adr"]`, so both are read and merged into one catalog:
+
+- **`adr/`, a git submodule** — your organisation's centralized ADR repo, shared across projects. Amending one is a proposal to your organisation: `/maat:adr-amend` opens a branch and PR in that repo, and the PR is the log of the change.
+- **`docs/adr/`, in this repo** — ADRs this project owns. Amending one is an ordinary change: the ADR is edited in place on the current branch and rides the story's own PR, so the reviewer sees the ADR change beside the code that justifies it. `docs/decisions.md` is the log.
+
+Either way `/maat:adr-amend` finds the file first and works out which it is, rather than assuming. An org-tier ADR whose submodule has no remote stops with an error instead of being edited locally, because that would fork a shared decision without anyone seeing it.
+
 | Command | Does | Writes? |
 |---|---|---|
 | `node docs/adr-cache.mjs` | Status line plus a machine tag: `CACHE=HIT` / `MISS` / `NONE` | no |
@@ -196,6 +215,16 @@ The audit stage does not check that a review *happened*. It checks whether the r
 ### One package, two clients
 
 Claude sources are authored once and the Copilot surfaces are generated from them, so there is no second workflow to keep in sync.
+
+### One hook, and what it does
+
+The plugin's entire hook surface is a single `SessionStart` entry:
+
+| Hook | Trigger | What it does | Turning it off |
+|---|---|---|---|
+| ADR cache warm-up | `SessionStart` | Runs `docs/adr-cache.mjs --ensure` best-effort, so the first review of a session is a cache HIT instead of a cold MISS | Disable the plugin. In a project it is already a no-op when `docs/adr-cache.mjs` is absent. |
+
+It is wrapped in a try/catch with a 10 second timeout and cannot fail a session. Nothing else in this plugin registers a hook, and nothing here intercepts a tool call. See [Non-goals](#non-goals).
 
 ### State that survives the session
 
@@ -229,7 +258,7 @@ Claude sources are authored once and the Copilot surfaces are generated from the
 
 | Command | Does |
 |---|---|
-| `/maat:adr-amend <ADR-ID> <reason>` | Propose an ADR amendment |
+| `/maat:adr-amend <ADR-ID> <reason>` | Propose an ADR change when the ADR is wrong rather than your code. Org-tier ADRs get a PR to the ADR repo; project-tier ADRs amend in place |
 | `/maat:init` | Scaffold or verify this project (`--update` to refresh) |
 | `/maat:help` | Command menu and setup status |
 
@@ -305,6 +334,7 @@ your-project/
 │   ├── adr-template.md
 │   ├── issue-template.md        # portable Issue schema + gh query cookbook
 │   ├── manager-summary-format.md
+│   ├── adr-cache-check.md       # how to read the cache line, for humans and agents
 │   ├── adr-cache.mjs            # the ADR token-cache
 │   ├── decisions-archive.mjs    # atomic decision-log sweeper
 │   ├── dashboard.mjs            # local insights dashboard
