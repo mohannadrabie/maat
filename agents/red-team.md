@@ -61,10 +61,10 @@ A report isn't "done" until all three exist. The invoking session (the Manager) 
 Then end your final message with a structured receipt the Manager acts on without reopening the file — it is a **COMPLETE terse index** of your report, not a top-N summary:
 ```
 RECEIPT: verdict=<go|no-go>
-attacks (ALL of them, one terse line each, ranked by blast radius — status [ISSUE]=BREAKS / [SUSPICION]=UNPROVEN / [CLEAN]=SURVIVES; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW]):
-1. [ISSUE][HIGH] <attack, one line — scenario + current defense assessed>
+attacks (ALL of them, one terse line each, ranked by blast radius — status [ISSUE]=BREAKS / [SUSPICION]=UNPROVEN / [CLEAN]=SURVIVES; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW]; and tag every finding with the evidence that backs it [demonstrated|code-traced|derived] (PRINCIPLES rule 19 — only the first two can block, `derived` caps at MED)):
+1. [ISSUE][HIGH][demonstrated] <attack, one line — scenario + current defense assessed>
 counts (a CHECKSUM — MUST equal the lines listed above; never truncated): issues=<n BREAKS> suspicions=<n UNPROVEN> clean=<n SURVIVES>
-evidence: demonstrated=<n> code-traced=<n> derived=<n>
+evidence (a CHECKSUM over the tags above — MUST equal them, and MUST total the counts line): demonstrated=<n> code-traced=<n> derived=<n>
 checks=<raw pass/fail/skip of anything you ran, or n/a>
 adr=<HIT|MISS|NONE>(<n>)
 report=docs/reviews/<scope>-red-team-<YYYY-MM-DD>.md

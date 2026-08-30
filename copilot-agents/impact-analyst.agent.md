@@ -95,7 +95,7 @@ Basis `assumption` caps the finding at LOW, and the only recommendation permitte
 
 **Add to your RECEIPT block**, immediately after the `counts` line:
 ```
-evidence: demonstrated=<n> code-traced=<n> derived=<n>
+evidence (a CHECKSUM over the tags above — MUST equal them, and MUST total the counts line): demonstrated=<n> code-traced=<n> derived=<n>
 ```
 
 ## Exposure-verification mode (lightweight — Manager Role 2b escalation)
@@ -137,7 +137,7 @@ RECEIPT: verdict=<SAFE-TO-PATCH|PATCH-WITH-CONDITIONS|REDESIGN-REQUIRED>
 candidates (ALL of them, one terse line each, ranked by risk — status [ISSUE]=WIDENS / [SUSPICION]=RELOCATES or UNKNOWN / [CLEAN]=CONTAINS; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW], then [evidence/classification], then exposure):
 1. [ISSUE][HIGH][demonstrated/systemic][~30% of imports] <candidate — what it widens, and where>
 counts (a CHECKSUM — MUST equal the lines listed above; never truncated): issues=<n WIDENS> suspicions=<n RELOCATES+UNKNOWN> clean=<n CONTAINS>
-evidence: demonstrated=<n> code-traced=<n> derived=<n>
+evidence (a CHECKSUM over the tags above — MUST equal them, and MUST total the counts line): demonstrated=<n> code-traced=<n> derived=<n>
 traced: upstream=<n producers> downstream=<n consumers> structural=<n classes fixed 2+ times>
 recommended=<candidate id> unmeasured=<n>
 checks=<raw pass/fail/skip of anything you ran, or n/a>

@@ -5,12 +5,18 @@
 //
 // WHY THIS EXISTS.
 // Stage 5 of /maat:ship gives the Manager 15 conditions that force it to reopen a persisted report
-// instead of trusting its RECEIPT. Eleven of them are arithmetic and file joins: does `counts` equal
-// the finding lines listed above it, is this verdict that agent's clean value, is there a [HIGH]
-// under a clean verdict, does a REVIEW_LOG row exist for this report. A model does that by holding N
-// reports in context and counting — the one thing it is worst at, and the one failure that passes
-// silently. A checksum off by one does not look wrong. This does those eleven mechanically and hands
-// back a table.
+// instead of trusting its RECEIPT. Most are arithmetic and file joins: does `counts` equal the
+// finding lines listed above it, is this verdict that agent's clean value, is there a [HIGH] under a
+// clean verdict, does a REVIEW_LOG row exist for this report. A model does that by holding N reports
+// in context and counting — the one thing it is worst at, and the one failure that passes silently.
+// A checksum off by one does not look wrong. This does them mechanically and hands back a table.
+//
+// EVIDENCE IS CHECKED PER FINDING, NOT IN AGGREGATE. PRINCIPLES rule 19 requires every finding to
+// declare `demonstrated` / `code-traced` / `derived`, and caps `derived` at MED. The receipt used to
+// carry only a tier tally, which cannot say WHICH finding was derived — so a HIGH resting on a
+// document could only be inferred, never proven. Every agent now tags the tier on the finding line
+// itself and the tally became a checksum over those tags, so both the rule and its arithmetic are
+// checkable here exactly.
 //
 // It is ADVISORY. It never returns a verdict, never blocks, and exits 0 on every path including its
 // own failure — this plugin carries the loop, not an enforcement layer (see the repo's CLAUDE.md
@@ -26,8 +32,10 @@
 //   node docs/receipt-check.mjs                      -> every report in docs/reviews/
 //   node docs/receipt-check.mjs --scope <scope>      -> only reports for one scope
 //   node docs/receipt-check.mjs --since YYYY-MM-DD   -> only reports dated on/after
-//   node docs/receipt-check.mjs --issues             -> also cross-check bug Issues via gh (slow)
+//   node docs/receipt-check.mjs --no-issues          -> skip the gh bug-Issue cross-check
 //   node docs/receipt-check.mjs --json               -> same result as JSON
+//
+// The gh cross-check runs by default and degrades to an UNKNOWN row when gh cannot answer.
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
@@ -129,15 +137,18 @@ function headSha() {
 }
 
 function filedIssueTitles(enabled) {
-  // Off by default: `gh issue list` is a network round trip and gh is not always installed or
-  // authenticated. When unavailable the bug-Issue trigger reports UNKNOWN rather than passing,
-  // because "I could not check" and "it is fine" must never look the same in this output.
-  if (!enabled) return { available: false, text: "" };
+  // On by default, and simply skipped when gh cannot answer. Leaving it opt-in meant the common
+  // case was a `?` row nobody acted on, which is the same silent gap this whole script exists to
+  // close. When gh is missing, unauthenticated, or the repo has no Issues, the trigger reports
+  // UNKNOWN rather than passing — "I could not check" and "it is fine" must never look the same.
+  if (!enabled) return { available: false, text: "", why: "--no-issues was passed" };
   try {
     const out = execFileSync("gh", ["issue", "list", "--state", "all", "--limit", "300", "--json", "title,body"],
       { encoding: "utf8", timeout: 20000, stdio: ["ignore", "pipe", "ignore"] });
-    return { available: true, text: out };
-  } catch { return { available: false, text: "" }; }
+    return { available: true, text: out, why: "" };
+  } catch (e) {
+    return { available: false, text: "", why: "gh unavailable, unauthenticated, or no Issues on this repo" };
+  }
 }
 
 // ---------- per-report evaluation ----------
@@ -148,19 +159,28 @@ function evaluate(file, text, ctx) {
     scope: nm ? nm.scope : file.replace(/\.md$/, ""),
     agent: nm ? agentOf(nm.slug) : "unknown",
     date: nm ? nm.date : "",
-    verdict: "", reopen: [], unknown: [], status: "OK",
+    verdict: "", reopen: [], unknown: [], status: "OK", note: "",
   };
 
+  // /maat:verify persists a pass/fail table, not a RECEIPT — it is a command artifact, not an
+  // agent's. Running the receipt triggers on it would print UNREAD on every single run and train
+  // the reader to skim past the column that matters. The two checks that DO apply to it (is it
+  // logged, does it describe the commit in hand) run at the bottom of this function.
+  const isVerify = r.agent === "verify";
+
   const at = text.search(/RECEIPT:/i);
-  if (at < 0) {
+  if (at < 0 && isVerify) {
+    r.note = "verify report — pass/fail table, no RECEIPT expected";
+  } else if (at < 0) {
     // Not a REOPEN but an UNREAD: there is no receipt to trust in the first place, so the cheap
     // path does not apply to this file at all.
     r.status = "UNREAD";
     r.reopen.push("no RECEIPT block in the persisted report (rule 10: a chat-only receipt is a claim)");
     return r;
   }
-  const body = text.slice(at);
+  const body = at < 0 ? "" : text.slice(at);
 
+  if (at >= 0) {
   // A definition file or template caught by a glob would otherwise poison every count.
   if (/<n>|<scope>|<SHIP\|/.test(body.slice(0, 500))) {
     r.status = "SKIP";
@@ -172,13 +192,42 @@ function evaluate(file, text, ctx) {
   r.verdict = vm ? vm[1].replace(/[<>`]/g, "").trim() : "";
   if (!r.verdict) r.reopen.push("malformed receipt: no verdict= on the RECEIPT line");
 
-  // --- trigger: counts checksum. The listed lines are between the findings header and the counts
-  // line; counting tags after the counts line would double-count the counts line's own text.
+  // --- Parse the finding lines ONCE. Everything below counts off this, not off raw tag matches in
+  // the receipt text: the receipt's own header line spells out the vocabulary ("status [ISSUE]=…
+  // / [SUSPICION]=… / [CLEAN]=…"), so a naive text tally counts the header as a finding and every
+  // genuine receipt fails its own checksum. A finding is a LIST ITEM whose first token is a bracket,
+  // which is the shape every agent definition documents.
   const countsAt = body.search(/^\s*counts\b/im);
   const listed = countsAt > 0 ? body.slice(0, countsAt) : body;
-  const tally = (tag) => (listed.match(new RegExp(`\\[${tag}\\]`, "g")) || []).length;
-  const listedIssues = tally("ISSUE"), listedSusp = tally("SUSPICION"), listedClean = tally("CLEAN");
 
+  const TIERS = new Set(["demonstrated", "code-traced", "derived"]);
+  const findings = [];
+  for (const line of listed.split("\n")) {
+    if (!/^\s*(?:\d+[.)]|[-*])\s*\[/.test(line)) continue;
+    const sm = line.match(/\[(ISSUE|SUSPICION|CLEAN)\]/);
+    if (!sm) continue;
+    const sev = (line.match(/\[(HIGH|MED|LOW)\]/) || [])[1] || "";
+    // The tier rides in its own bracket, and some agents make that bracket compound
+    // ("[demonstrated/systemic]", "[demonstrated/user/routine/irreversible]"), so scan every
+    // bracket's slash-separated tokens rather than assuming a fixed position.
+    let tier = "";
+    for (const b of line.match(/\[[^\]]*\]/g) || []) {
+      for (const tok of b.slice(1, -1).split("/")) {
+        const x = tok.trim().toLowerCase();
+        if (TIERS.has(x)) { tier = x; break; }
+      }
+      if (tier) break;
+    }
+    findings.push({ status: sm[1], sev, tier, text: line.trim().slice(0, 90) });
+  }
+
+  const listedIssues = findings.filter(f => f.status === "ISSUE").length;
+  const listedSusp   = findings.filter(f => f.status === "SUSPICION").length;
+  const listedClean  = findings.filter(f => f.status === "CLEAN").length;
+  const high = findings.filter(f => f.sev === "HIGH").length;
+  const med  = findings.filter(f => f.sev === "MED").length;
+
+  // --- trigger: counts checksum
   const cm = body.match(/counts[^\n]*?issues=(\d+)\s+suspicions=(\d+)\s+clean=(\d+)/i);
   if (!cm) {
     r.reopen.push("malformed receipt: no `counts (CHECKSUM): issues= suspicions= clean=` line");
@@ -189,9 +238,6 @@ function evaluate(file, text, ctx) {
                     `but ${listedIssues}/${listedSusp}/${listedClean} lines are listed`);
     }
   }
-
-  const high = (listed.match(/\[HIGH\]/g) || []).length;
-  const med  = (listed.match(/\[MED\]/g)  || []).length;
 
   // --- trigger: verdict is not this agent's clean value / is not in its enum at all
   const enums = VOCAB[r.agent];
@@ -235,14 +281,33 @@ function evaluate(file, text, ctx) {
     r.reopen.push("checks=n/a while carrying a blocking finding — nothing was run");
   }
 
-  // --- trigger: a blocking finding resting only on derived evidence. The receipt carries evidence
-  // as a tier tally, not per finding, so the sound conservative rule is: a [HIGH] exists and NOTHING
-  // in this report was demonstrated or code-traced. PRINCIPLES rule 10 caps derived at MED.
-  const ev = body.match(/evidence:\s*demonstrated=(\d+)\s+code-traced=(\d+)\s+derived=(\d+)/i);
+  // --- trigger: a blocking finding resting on derived evidence. PRINCIPLES rule 19 says every
+  // finding declares its tier and only demonstrated/code-traced can gate, so this is exact per
+  // finding rather than inferred from an aggregate that cannot say WHICH finding was derived.
+  const untagged = findings.filter(f => !f.tier);
+  if (untagged.length) {
+    r.reopen.push(`${untagged.length} finding(s) carry no [demonstrated|code-traced|derived] tag (rule 19: every finding declares one)`);
+  }
+  for (const f of findings.filter(x => x.sev === "HIGH" && x.tier === "derived")) {
+    r.reopen.push(`[HIGH] on derived evidence only — rule 19 caps derived at MED: ${f.text}`);
+  }
+
+  // --- trigger: the evidence line is a checksum over those tags, so it must agree with them and
+  // total the findings. Two independent counts that disagree mean one of them was written by hand.
+  const ev = body.match(/evidence[^\n]*?demonstrated=(\d+)\s+code-traced=(\d+)\s+derived=(\d+)/i);
   if (!ev) {
-    if (listedIssues > 0) r.unknown.push("no `evidence:` tier line — evidence policy not checkable");
-  } else if (high > 0 && +ev[1] === 0 && +ev[2] === 0 && +ev[3] > 0) {
-    r.reopen.push("a [HIGH] rests on derived evidence only (rule 10 caps derived at MED)");
+    if (findings.length) r.unknown.push("no `evidence:` tier line — aggregate not cross-checkable");
+  } else {
+    const want = { demonstrated: +ev[1], "code-traced": +ev[2], derived: +ev[3] };
+    const got = { demonstrated: 0, "code-traced": 0, derived: 0 };
+    for (const f of findings) if (f.tier) got[f.tier]++;
+    for (const k of Object.keys(want)) {
+      if (want[k] !== got[k]) r.reopen.push(`evidence checksum: line says ${k}=${want[k]}, findings tagged ${k}=${got[k]}`);
+    }
+    const total = want.demonstrated + want["code-traced"] + want.derived;
+    if (findings.length && total !== findings.length) {
+      r.reopen.push(`evidence totals ${total} but ${findings.length} finding(s) are listed`);
+    }
   }
 
   // --- trigger: every [HIGH] states its blast radius (PRINCIPLES rule 21). Presence is mechanical;
@@ -253,22 +318,25 @@ function evaluate(file, text, ctx) {
     else if (exposures < high) r.reopen.push(`${high} [HIGH] finding(s) but only ${exposures} Exposure line(s) (rule 21)`);
   }
 
-  // --- trigger: no REVIEW_LOG row for this persisted report
-  if (ctx.log === null) {
-    r.unknown.push(`${LOG} not found — REVIEW_LOG row not checkable`);
-  } else if (!ctx.log.includes(file)) {
-    r.reopen.push(`no ${LOG} row references this report`);
-  }
-
   // --- trigger: a [HIGH]/[MED] [ISSUE] with no bug Issue filed
   if (listedIssues > 0 && (high > 0 || med > 0)) {
     if (!ctx.issues.available) {
-      r.unknown.push("bug-Issue cross-check not run (pass --issues, and have gh installed and authed)");
+      r.unknown.push(`bug-Issue cross-check not run (${ctx.issues.why})`);
     } else if (!ctx.issues.text.includes(file)) {
       // Every agent is told to link its persisted report from the Issue body, so the report path is
       // the join key. An Issue that does not name it is not evidence this finding was filed.
       r.reopen.push(`[HIGH]/[MED] issue(s) but no GitHub Issue body links ${file}`);
     }
+  }
+
+  } // end receipt-dependent triggers
+
+  // --- trigger: no REVIEW_LOG row. Applies to EVERY persisted report, verify's included — a report
+  // nobody logged is a report the next session will not find.
+  if (ctx.log === null) {
+    r.unknown.push(`${LOG} not found — REVIEW_LOG row not checkable`);
+  } else if (!ctx.log.includes(file)) {
+    r.reopen.push(`no ${LOG} row references this report`);
   }
 
   // --- trigger: report is stale against the commit being shipped
@@ -295,7 +363,7 @@ try { files = readdirSync(REVIEWS).filter(f => f.endsWith(".md") && !/^meta-audi
 catch { soft(`${REVIEWS}/ not found — nothing to check. Run a review first.`); }
 
 const st = state();
-const ctx = { log: reviewLogPaths(), head: headSha(), issues: filedIssueTitles(flag("--issues")) };
+const ctx = { log: reviewLogPaths(), head: headSha(), issues: filedIssueTitles(!flag("--no-issues")) };
 
 const results = [];
 for (const f of files) {
@@ -337,7 +405,7 @@ const w = Math.min(46, Math.max(...live.map(r => r.file.length)));
 process.stdout.write(`receipt-check: ${summary.reports} report(s) — ${summary.ok} OK, ${summary.reopen} REOPEN, ${summary.unread} UNREAD\n`);
 for (const r of live) {
   const mark = r.status === "OK" ? "OK    " : r.status === "REOPEN" ? "REOPEN" : "UNREAD";
-  process.stdout.write(`  ${mark}  ${r.file.padEnd(w)}  ${(r.verdict || "-").padEnd(24)}\n`);
+  process.stdout.write(`  ${mark}  ${r.file.padEnd(w)}  ${(r.verdict || "-").padEnd(24)}${r.note ? `  (${r.note})` : ""}\n`);
   for (const why of r.reopen)  process.stdout.write(`          → ${why}\n`);
   for (const why of r.unknown) process.stdout.write(`          ? ${why}\n`);
 }

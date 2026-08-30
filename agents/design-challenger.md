@@ -132,10 +132,10 @@ If a defense is solid, say **SURVIVES** and move on. Manufactured findings destr
 End your final message with a structured receipt the Manager acts on without reopening the file — it is a **COMPLETE terse index** of your report, not a top-N summary:
 ```
 RECEIPT: verdict=<go|no-go>
-attacks (ALL of them, one terse line each, ranked by blast radius — status [ISSUE]=BREAKS / [SUSPICION]=UNPROVEN / [CLEAN]=SURVIVES; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW], then [evidence/reach/likelihood/undo], then exposure):
+attacks (ALL of them, one terse line each, ranked by blast radius — status [ISSUE]=BREAKS / [SUSPICION]=UNPROVEN / [CLEAN]=SURVIVES; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW], then [evidence/reach/likelihood/undo] where evidence is [demonstrated|code-traced|derived] (PRINCIPLES rule 19 — only the first two can block, `derived` caps at MED), then exposure):
 1. [ISSUE][HIGH][demonstrated/user/routine/irreversible][~40% of imports] <attack, one line — scenario + current defense assessed>
 counts (a CHECKSUM — MUST equal the lines listed above; never truncated): issues=<n BREAKS> suspicions=<n UNPROVEN> clean=<n SURVIVES>
-evidence: demonstrated=<n> code-traced=<n> derived=<n>
+evidence (a CHECKSUM over the tags above — MUST equal them, and MUST total the counts line): demonstrated=<n> code-traced=<n> derived=<n>
 round=<N> roundsSinceLastGo=<N> frozen=<n> residuals=<n> unrun=<n> editorial=<n>
 checks=<raw pass/fail/skip of anything you ran, or n/a>
 adr=<HIT|MISS|NONE>(<n>)

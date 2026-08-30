@@ -62,10 +62,10 @@ A report isn't "done" until all three exist. The invoking session (the Manager) 
 End your final message with a structured receipt the Manager acts on without reopening the file — it is a **COMPLETE terse index** of your report, not a top-N summary:
 ```
 RECEIPT: verdict=<APPROVE|APPROVE-WITH-CONDITIONS|REWORK>
-findings (ALL of them, one terse line each, ranked by blast radius on stored state — status [ISSUE]=confirmed / [SUSPICION]=unconfirmed, needs a second look / [CLEAN]=verified-sound-worth-naming; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW]):
-1. [ISSUE][HIGH] <file:line — the problem + minimal fix, one line>
+findings (ALL of them, one terse line each, ranked by blast radius on stored state — status [ISSUE]=confirmed / [SUSPICION]=unconfirmed, needs a second look / [CLEAN]=verified-sound-worth-naming; prefix every [ISSUE]/[SUSPICION] with severity [HIGH|MED|LOW]; and tag every finding with the evidence that backs it [demonstrated|code-traced|derived] (PRINCIPLES rule 19 — only the first two can block, `derived` caps at MED)):
+1. [ISSUE][HIGH][demonstrated] <file:line — the problem + minimal fix, one line>
 counts (a CHECKSUM — MUST equal the lines listed above; never truncated): issues=<n> suspicions=<n> clean=<n>
-evidence: demonstrated=<n> code-traced=<n> derived=<n>
+evidence (a CHECKSUM over the tags above — MUST equal them, and MUST total the counts line): demonstrated=<n> code-traced=<n> derived=<n>
 checks="<passed>/<failed>/<skipped>|n/a"
 adr=<HIT|MISS|NONE>(<n>)
 report=docs/reviews/<scope>-data-<YYYY-MM-DD>.md

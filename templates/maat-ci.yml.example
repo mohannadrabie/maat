@@ -40,13 +40,13 @@ jobs:
 
       - name: Receipt check
         env:
-          # --issues cross-references [HIGH]/[MED] findings against filed bug Issues. Drop the flag
-          # if your project has not adopted the bug-Issue convention; without a token the script
-          # reports that check as UNKNOWN rather than passing it.
+          # The script cross-references [HIGH]/[MED] findings against filed bug Issues by default.
+          # Pass --no-issues below if your project has not adopted that convention; without a token
+          # the check reports UNKNOWN rather than passing.
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -f docs/receipt-check.mjs ]; then
-            node docs/receipt-check.mjs --issues
+            node docs/receipt-check.mjs
           else
             echo "docs/receipt-check.mjs not present — run /maat:init to scaffold it."
           fi

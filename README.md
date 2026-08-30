@@ -262,11 +262,22 @@ receipt-check: 4 report(s) — 1 OK, 2 REOPEN, 1 UNREAD
           → no RECEIPT block in the persisted report
 ```
 
-It covers eleven mechanical triggers: checksum against the listed findings, verdict against that agent's clean enum, a clean verdict contradicted by its own findings, any HIGH or SUSPICION, failed or skipped checks under a clean verdict, a blocker resting only on derived evidence, a HIGH with no stated exposure, a missing `REVIEW_LOG.md` row, a missing bug Issue, a report whose `HEAD:` predates the commit in hand, and an outstanding human ruling in state.
+It covers the mechanical triggers: the counts checksum against the listed findings, the evidence checksum against the per-finding tags, verdict against that agent's clean enum, a clean verdict contradicted by its own findings, any HIGH or SUSPICION, failed or skipped checks under a clean verdict, a finding with no evidence tag, a HIGH tagged `derived` (rule 19 caps that at MED), a HIGH with no stated exposure, a missing `REVIEW_LOG.md` row, a missing bug Issue, a report whose `HEAD:` predates the commit in hand, and an outstanding human ruling in state.
+
+**Evidence is checked per finding, not in aggregate.** Rule 19 already required every finding to declare `demonstrated`, `code-traced` or `derived`, and caps `derived` at MED. The receipt used to carry only a tier tally, which cannot say *which* finding was derived, so a HIGH resting on a document could be inferred but never proven. Every agent now tags the tier on the finding line itself and the tally became a checksum over those tags:
+
+```text
+1. [ISSUE][HIGH][code-traced] api/handler.ts:88 — unbounded page size
+2. [CLEAN][demonstrated] api/auth.ts — token refresh verified end to end
+counts (a CHECKSUM): issues=1 suspicions=0 clean=1
+evidence (a CHECKSUM over the tags above): demonstrated=1 code-traced=1 derived=0
+```
+
+Two independent counts that have to agree, and a rule whose arithmetic is now checkable exactly.
 
 **Four triggers it deliberately does not touch,** and it prints them at the bottom of every run so they cannot be automated away: a terse line that reads worse than its own severity tag, whether a claimed ADR violation is real, whether zero findings is honest for the size of the diff, and whether a HIGH's stated exposure holds up. Those are judgement, and they stay with the Manager.
 
-It is advisory. It exits 0 on every path including its own failure, `OK` means the mechanics passed rather than that the report is right, and anything it could not check prints with a `?` so unchecked never looks like clean.
+It is advisory. It exits 0 on every path including its own failure, `OK` means the mechanics passed rather than that the report is right, and anything it could not check prints with a `?` so unchecked never looks like clean. The bug-Issue cross-check runs by default and degrades to a `?` row when `gh` cannot answer; `--no-issues` skips it.
 
 ### An audit that is discipline, not paperwork
 

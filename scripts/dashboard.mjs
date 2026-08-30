@@ -236,7 +236,10 @@ function readReceipts() {
     const counts = text.match(/counts[^\n]*?issues=(\d+)\s+suspicions=(\d+)\s+clean=(\d+)/i);
     if (counts) { rec.issues = +counts[1]; rec.suspicions = +counts[2]; rec.clean = +counts[3]; }
 
-    const ev = text.match(/evidence:\s*demonstrated=(\d+)\s+code-traced=(\d+)\s+derived=(\d+)/i);
+    // Loose on what sits between "evidence" and "demonstrated=": the line carries a parenthetical
+    // ("evidence (a CHECKSUM over the tags above): demonstrated=…"), and a strict `evidence:` anchor
+    // silently matches nothing, zeroing every evidence-quality column without erroring.
+    const ev = text.match(/evidence[^\n]*?demonstrated=(\d+)\s+code-traced=(\d+)\s+derived=(\d+)/i);
     if (ev) { rec.demonstrated = +ev[1]; rec.codeTraced = +ev[2]; rec.derived = +ev[3]; }
 
     // Severity tags are counted from the receipt's own finding lines, not the prose above them.
