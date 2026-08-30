@@ -8,7 +8,7 @@ First release of `maat` as a standalone agentic-workflow plugin, in a fresh repo
 
 ### Added
 
-- **19 agents** — `manager` (Alakazam), `intake-refiner`, `story-implementer`, `test-writer`, `debugger`, `impact-analyst`, `adr-amender`, `design-challenger`, `red-team`, and the reviewer set: `code-reviewer`, `architecture-reviewer`, `cross-domain-reviewer`, `network-reviewer`, `infra-security-reviewer`, `usability-reviewer`, `app-security-reviewer`, `api-reviewer`, `data-reviewer`, `performance-reviewer`.
+- **19 agents** — `manager` (Thoth), `intake-refiner`, `story-implementer`, `test-writer`, `debugger`, `impact-analyst`, `adr-amender`, `design-challenger`, `red-team`, and the reviewer set: `code-reviewer`, `architecture-reviewer`, `cross-domain-reviewer`, `network-reviewer`, `infra-security-reviewer`, `usability-reviewer`, `app-security-reviewer`, `api-reviewer`, `data-reviewer`, `performance-reviewer`.
 - **13 slash commands** under the `/maat:` namespace — `ship`, `plan`, `review`, `verify`, `debug`, `red-team`, `challenge`, `council`, `resolve`, `audit`, `adr-amend`, `init`, `help`.
 - **13 generated skills** and **19 generated Copilot agents**, produced from the same authored sources by `scripts/sync-copilot-format.mjs`, so Claude Code and GitHub Copilot ship from one package.
 - **ADR token-cache** (`scripts/adr-cache.mjs`) — builds a compressed, lossless catalog of the project's ADRs (domain tags + verbatim rules, not prose) so a fan-out of reviewers shares one read. Warmed by the plugin's single `SessionStart` hook.

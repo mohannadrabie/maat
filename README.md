@@ -86,7 +86,7 @@ Prefer to drive it yourself? Run the stages one at a time:
 
 ## The loop
 
-The Manager (**Alakazam**) is the single voice to you. It delegates to specialists, carries results forward, and stops at every point where a human decision is needed.
+The Manager (**Thoth**) is the single voice to you. It delegates to specialists, carries results forward, and stops at every point where a human decision is needed.
 
 ```mermaid
 flowchart LR
@@ -308,50 +308,50 @@ Each command is also generated as a **skill**, so the same capability is reachab
 
 ## Agents
 
-19 specialists. The point is not "more agents" — it is that the loop can route a change to the *minimum correct* reviewer set.
+19 specialists. The point is not "more agents" — it is that the loop can route a change to the *minimum correct* reviewer set. Each one announces itself with its glyph and call sign, so a transcript reads as a team at work rather than a wall of undifferentiated output.
 
 <table>
 <tr><th align="left">Core</th><th align="left">Cross-cutting review</th></tr>
 <tr valign="top"><td>
 
-| Agent | Role |
-|---|---|
-| `manager` | Conducts the loop, single voice to you |
-| `intake-refiner` | Extracts requirements, never invents them |
-| `story-implementer` | Decomposes, plans, builds |
-| `test-writer` | Black-box acceptance tests, written red first |
-| `debugger` | Reproduce, isolate, minimal fix |
-| `impact-analyst` | Structural findings and path options |
-| `adr-amender` | Proposes ADR changes |
+| Agent | Call sign | Role |
+|---|---|---|
+| `manager` | 🧠 Thoth | Conducts the loop, single voice to you |
+| `intake-refiner` | 🔮 Sia | Extracts requirements, never invents them |
+| `story-implementer` | 💪 Ptah | Decomposes, plans, builds |
+| `test-writer` | 🔑 Khnum | Black-box acceptance tests, written red first |
+| `debugger` | 🔄 Serqet | Reproduce, isolate, minimal fix |
+| `impact-analyst` | 🔭 Wepwawet | Structural findings and path options |
+| `adr-amender` | 📜 Seshat | Proposes ADR changes |
 
 </td><td>
 
-| Agent | Role |
-|---|---|
-| `code-reviewer` | Correctness, tests, maintainability |
-| `architecture-reviewer` | Design, coupling, cost, evolution |
-| `cross-domain-reviewer` | Whole-catalog cross-domain seam pass |
-| `red-team` | Failure scenarios, mandates proof-tests |
-| `design-challenger` | Attacks a design before it is built |
+| Agent | Call sign | Role |
+|---|---|---|
+| `code-reviewer` | ⚖️ Anubis | Correctness, tests, maintainability |
+| `architecture-reviewer` | 🏛️ Imhotep | Design, coupling, cost, evolution |
+| `cross-domain-reviewer` | ☀️ Ra | Whole-catalog cross-domain seam pass |
+| `red-team` | 🌪️ Sutekh | Failure scenarios, mandates proof-tests |
+| `design-challenger` | 🗡️ Apep | Attacks a design before it is built |
 
 </td></tr>
 <tr><th align="left">Infrastructure</th><th align="left">Application</th></tr>
 <tr valign="top"><td>
 
-| Agent | Role |
-|---|---|
-| `network-reviewer` | Topology, segmentation, exposure |
-| `infra-security-reviewer` | IAM, secrets, encryption, supply chain |
-| `usability-reviewer` | Usability and decision quality |
+| Agent | Call sign | Role |
+|---|---|---|
+| `network-reviewer` | ⚡ Shu | Topology, segmentation, exposure |
+| `infra-security-reviewer` | 🐍 Wadjet | IAM, secrets, encryption, supply chain |
+| `usability-reviewer` | 💗 Hathor | Usability and decision quality |
 
 </td><td>
 
-| Agent | Role |
-|---|---|
-| `app-security-reviewer` | Authn/authz, injection, deps, secrets |
-| `api-reviewer` | Contracts, versioning, breaking changes |
-| `data-reviewer` | Schema, migration safety, integrity |
-| `performance-reviewer` | Budgets, complexity, caching, concurrency |
+| Agent | Call sign | Role |
+|---|---|---|
+| `app-security-reviewer` | 🛡️ Horus | Authn/authz, injection, deps, secrets |
+| `api-reviewer` | ⚙️ Aker | Contracts, versioning, breaking changes |
+| `data-reviewer` | 🗄️ Geb | Schema, migration safety, integrity |
+| `performance-reviewer` | 💨 Khepri | Budgets, complexity, caching, concurrency |
 
 </td></tr>
 </table>

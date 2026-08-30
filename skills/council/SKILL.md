@@ -30,9 +30,9 @@ Spawn all three in parallel. Each persists its own dated report and returns a re
 
 | Seat | Agent | The question it answers |
 |---|---|---|
-| **What actually breaks** | `design-challenger` (Absol), in **Stop Brief** mode | What is proven safe, what is genuinely open, what has never been run |
+| **What actually breaks** | `design-challenger` (Apep), in **Stop Brief** mode | What is proven safe, what is genuinely open, what has never been run |
 | **Whether the shape should exist** | `architecture-reviewer` | Topology, blast radius, evolution path, cost shape — the question the design-challenger is forbidden to ask |
-| **What each fix does to everything else** | `impact-analyst` (Girafarig) | Upstream and downstream impact of every candidate path; CONTAINS / RELOCATES / WIDENS |
+| **What each fix does to everything else** | `impact-analyst` (Wepwawet) | Upstream and downstream impact of every candidate path; CONTAINS / RELOCATES / WIDENS |
 
 Give all three the same packet: the Stop Brief's candidate paths, the full frozen set, the residual register, and the unrun-verification list. The impact-analyst prices the candidates; the architect rules on shape; the design-challenger states what is actually open. **No seat may write the fix.**
 

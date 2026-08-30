@@ -41,7 +41,7 @@ Both the manager agent AND the main session (when synthesizing inline) MUST use 
 ## Format Rules
 
 1. **Keep it short** — This is the first (often only) thing the engineer reads
-2. **One line per reviewer** — Include Pokémon call sign for transparency
+2. **One line per reviewer** — Include the agent's call sign for transparency
 3. **ADR Compliance aggregates ALL reviewers** — Single source of truth for ADR findings
 4. **Blockers are explicit** — Each blocker includes its named unlock
 5. **Next action is singular** — One thing, not a list
@@ -89,15 +89,15 @@ Each agent's own verdict enum differs; the Manager Summary's own `[SHIP | SHIP-W
 **Verdict:** SHIP-WITH-CONDITIONS
 
 **Per-reviewer:**
-- infra-security-reviewer (Umbreon) → APPROVE-WITH-CONDITIONS → Fix IAM wildcard in terraform/modules/api/iam.tf:42 → `docs/reviews/api-infra-security-2026-07-11.md` [full report read]
-- network-reviewer (Magnezone) → APPROVE → Clean, no reachability issues → `docs/reviews/api-network-2026-07-11.md` [receipt-trusted — not full-read]
-- cross-domain-reviewer (Wobbuffet) → APPROVE → No cross-domain ADR collisions, no seam gaps found → `docs/reviews/api-cross-domain-2026-07-11.md` [receipt-trusted — not full-read]
+- infra-security-reviewer (Wadjet) → APPROVE-WITH-CONDITIONS → Fix IAM wildcard in terraform/modules/api/iam.tf:42 → `docs/reviews/api-infra-security-2026-07-11.md` [full report read]
+- network-reviewer (Shu) → APPROVE → Clean, no reachability issues → `docs/reviews/api-network-2026-07-11.md` [receipt-trusted — not full-read]
+- cross-domain-reviewer (Ra) → APPROVE → No cross-domain ADR collisions, no seam gaps found → `docs/reviews/api-cross-domain-2026-07-11.md` [receipt-trusted — not full-read]
 
 **ADR Compliance:**
 - ADR-003 (S3 encryption) → COMPLIANT
 - ADR-007 (IAM least privilege) → VIOLATED (BLOCKER)
   - Constraint: "No wildcard actions in IAM policies"
-  - Flagged by: infra-security-reviewer (Umbreon)
+  - Flagged by: infra-security-reviewer (Wadjet)
   - Location: terraform/modules/api/iam.tf:42
 
 **Blockers:**
