@@ -157,19 +157,20 @@ function deriveGitHubStats(gh) {
 
 
 
-// Report filenames carry a short slug, not the agent's name: `code-reviewer` writes
-// `<scope>-code-<date>.md`, `appsec-reviewer` writes `<scope>-appsec-<date>.md`. The run log, by
-// contrast, records the agent's real name because that is what the Manager knows it by. Without
-// this map the two never join and every per-agent Manager statistic silently reads zero, which is
-// worse than showing nothing. Derived from each agent definition's own persist instruction; an
-// unknown slug passes through unchanged rather than being dropped.
+// Report filenames carry the agent's name minus its `-reviewer` suffix: `code-reviewer` writes
+// `<scope>-code-<date>.md`, `app-security-reviewer` writes `<scope>-app-security-<date>.md`. The run
+// log, by contrast, records the agent's real name because that is what the Manager knows it by.
+// Without this map the two never join and every per-agent Manager statistic silently reads zero,
+// which is worse than showing nothing. Agents with no `-reviewer` suffix (red-team,
+// design-challenger, impact-analyst, test-writer) need no entry — their slug already IS their name,
+// and an unknown slug passes through unchanged rather than being dropped.
 const SLUG_TO_AGENT = {
-  code: "code-reviewer", architecture: "architecture-reviewer", security: "security-reviewer",
-  appsec: "appsec-reviewer", api: "api-reviewer", data: "data-reviewer",
-  network: "network-reviewer", performance: "performance-reviewer", consumer: "consumer-reviewer",
-  fullspectrum: "fullspectrum-reviewer", redteam: "redteam", challenger: "challenger",
-  analyst: "analyst", "analyst-exposure": "analyst", "test-writer": "test-writer",
-  debug: "debugger", shipcheck: "ship-check",
+  code: "code-reviewer", architecture: "architecture-reviewer",
+  "infra-security": "infra-security-reviewer", "app-security": "app-security-reviewer",
+  api: "api-reviewer", data: "data-reviewer", network: "network-reviewer",
+  performance: "performance-reviewer", usability: "usability-reviewer",
+  "cross-domain": "cross-domain-reviewer",
+  "impact-analyst-exposure": "impact-analyst", debug: "debugger",
 };
 const agentOf = slug => SLUG_TO_AGENT[slug] || slug;
 
@@ -323,17 +324,17 @@ function deriveFeatureProgress(gh) {
 }
 
 // ---------- 2e. audit highlights ----------
-// /maat:audit-reviewers writes a credibility scorecard and one process finding to
+// /maat:audit writes a credibility scorecard and one process finding to
 // docs/reviews/meta-audit-<date>.md every month, and until now nothing read those files.
 function deriveAuditHighlights(reports) {
   const metas = reports.filter(r => r.isMetaAudit).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  if (!metas.length) return { available: false, note: "No meta-audit report found. Run /maat:audit-reviewers to produce one.", latest: null, scorecard: [], processFinding: "", all: [] };
+  if (!metas.length) return { available: false, note: "No meta-audit report found. Run /maat:audit to produce one.", latest: null, scorecard: [], processFinding: "", all: [] };
 
   const latest = metas[0];
   let text = "";
   try { text = readFileSync(`${REVIEWS_DIR}/${latest.file}`, "utf8"); } catch {}
 
-  // The scorecard's own vocabulary, per audit-reviewers.md step 3.
+  // The scorecard's own vocabulary, per audit.md step 3.
   const scorecard = [];
   for (const line of text.split(/\r?\n/)) {
     const m = line.match(/([a-z][a-z-]{2,})[^\n]*?\b(IMPROVING|STEADY|DEGRADING)\b/i);

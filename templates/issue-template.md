@@ -26,7 +26,7 @@ project_fields:
   Status: [Backlog, Design, Blocked-on-owner, In Review, Building, Shipped, Declined]
   Feature ID: "<populated from your project's own requirements/roadmap doc, if any>"
   Risk tier: [TRIVIAL, STANDARD, CRITICAL]
-  Round count: "number, optional — challenger/review round tracking"
+  Round count: "number, optional — design-challenger/review round tracking"
 ---
 
 # Issue Template & Query Cookbook

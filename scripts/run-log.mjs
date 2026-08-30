@@ -71,10 +71,10 @@ function summarize(since) {
   const tiers = { ratified: 0, changed: 0 };
   const council = { GO: 0, "NO-GO": 0 };
 
-  // Report filenames use a short slug ("appsec") while this log records the agent's name
-  // ("appsec-reviewer"). dashboard.mjs joins the two, so normalize here as well and the two tools
-  // cannot disagree about who a statistic belongs to.
-  const SLUG_TO_AGENT = { code: "code-reviewer", architecture: "architecture-reviewer", security: "security-reviewer", appsec: "appsec-reviewer", api: "api-reviewer", data: "data-reviewer", network: "network-reviewer", performance: "performance-reviewer", consumer: "consumer-reviewer", fullspectrum: "fullspectrum-reviewer", debug: "debugger", "analyst-exposure": "analyst" };
+  // Report filenames carry the agent's name minus its `-reviewer` suffix ("app-security") while
+  // this log records the agent's name ("app-security-reviewer"). dashboard.mjs joins the two, so
+  // normalize here as well and the two tools cannot disagree about who a statistic belongs to.
+  const SLUG_TO_AGENT = { code: "code-reviewer", architecture: "architecture-reviewer", "infra-security": "infra-security-reviewer", "app-security": "app-security-reviewer", api: "api-reviewer", data: "data-reviewer", network: "network-reviewer", performance: "performance-reviewer", usability: "usability-reviewer", "cross-domain": "cross-domain-reviewer", "impact-analyst-exposure": "impact-analyst", debug: "debugger" };
   const agentOf = s => SLUG_TO_AGENT[s] || s;
 
   for (const r of rows) {

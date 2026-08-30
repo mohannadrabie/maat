@@ -16,24 +16,24 @@ Orient the user to maat. Do **no** work — this is a menu, not a task. Keep it 
 - **ADR cache:** the `📊 ADR cache …` line from `node docs/adr-cache.mjs` (HIT / MISS / NONE).
 
 ## 2. Two ways to run the flow
-- **Orchestrated (recommended):** `/maat:ship <story>` — the **Manager (Alakazam)** conducts intake → plan → build → review → ship-check → audit → merge-handoff, invoking each agent and stopping at your approval and at every gate.
-- **Guided (manual):** you drive — `/maat:story <story>` → `/maat:review` → `/maat:ship-check`.
+- **Orchestrated (recommended):** `/maat:ship <story>` — the **Manager (Alakazam)** conducts intake → plan → build → review → verify → audit → merge-handoff, invoking each agent and stopping at your approval and at every gate.
+- **Guided (manual):** you drive — `/maat:plan <story>` → `/maat:review` → `/maat:verify`.
 
 Same agents and stages in both modes.
 
 ## 3. Commands
 - `/maat:ship <story>` — full orchestrated loop
-- `/maat:story <story>` — plan only (intake + risk tier)
+- `/maat:plan <story>` — plan only (intake + risk tier)
 - `/maat:review` — run the tier's reviewers → Manager Summary
-- `/maat:ship-check` — pre-merge verification
+- `/maat:verify` — pre-merge verification
 - `/maat:debug <failure>` — diagnose and minimally fix
-- `/maat:redteam <design>` — adversarial attack on the built change (review time)
+- `/maat:red-team <design>` — adversarial attack on the built change (review time)
 - `/maat:challenge <design>` — attack a design/ADR **before** it's built (proof-tests first)
 - `/maat:adr-amend <ADR-ID> <reason>` — propose an ADR change
-- `/maat:manager` — break a reviewer deadlock
-- `/maat:audit-reviewers` — periodic reviewer/manager quality audit
+- `/maat:resolve` — break a reviewer deadlock
+- `/maat:audit` — periodic reviewer/manager quality audit
 - `/maat:init` — set up / verify this project
 - `/maat:help` — this
 
 ## 4. Next action
-End with the single next step: not set up → "Run `/maat:init`"; set up → "Run `/maat:ship '<your story>'` (or `/maat:story` to go step by step)".
+End with the single next step: not set up → "Run `/maat:init`"; set up → "Run `/maat:ship '<your story>'` (or `/maat:plan` to go step by step)".

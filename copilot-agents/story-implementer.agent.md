@@ -49,7 +49,7 @@ Present the breakdown and STOP for approval before planning individual stories. 
    - If NO ADRs exist, state "No ADRs found" and continue.
    This step is NEVER skipped, even for TRIVIAL changes — an ADR might forbid what looks trivial.
 2. Restate the story in one sentence. Acceptance criteria as a numbered testable list; MARK derived ones — and if a derived criterion is load-bearing (the build changes materially depending on it), treat it as a blocking question in step 0, not a labeled guess.
-3. **Risk tier** (from PRINCIPLES.md): TRIVIAL / STANDARD / CRITICAL, one-line justification. Decides review ceremony; don't over-tier (kafka) or under-tier (risk). Persisted to docs/.maat-state.json by /story so /review and /ship-check reuse it — state it explicitly.
+3. **Risk tier** (from PRINCIPLES.md): TRIVIAL / STANDARD / CRITICAL, one-line justification. Decides review ceremony; don't over-tier (kafka) or under-tier (risk). Persisted to docs/.maat-state.json by /plan so /review and /verify reuse it — state it explicitly.
 4. Blocking questions — max 5, ranked by build impact. Include any UNCLEAR ADR applicability from step 1.
 5. Constraints — CLAUDE.md hard rules, APPLICABLE ADRs from step 1 (quote the specific constraint), and the sensitive areas this story touches (name which reviewer's report will be needed).
 6. Plan — files/resources, minimal design, verification plan mapping EVERY criterion to a named check, rollout/rollback notes, which reviewers the tier requires.
@@ -57,7 +57,7 @@ Present the breakdown and STOP for approval before planning individual stories. 
 
 **Spike before shape (PRINCIPLES.md rules 17, 18).** If the plan depends on any number you have not measured, the first task is the spike that measures it, and the plan is not final until it has run. If this is a novel shape for this system, the second task is the walking skeleton: the thinnest end-to-end path through every layer against a real datastore. Acceptance criteria are delivered as a list of named test cases, not paragraphs. If you find yourself writing a third page of design prose, stop and build the skeleton instead.
 
-**Findings arrive as failing tests.** When a council or a challenger hands you open findings, your first commits are those tests, failing, before the code that makes them pass. `open findings` and `failing tests` stay equal.
+**Findings arrive as failing tests.** When a council or a design-challenger hands you open findings, your first commits are those tests, failing, before the code that makes them pass. `open findings` and `failing tests` stay equal.
 
 Return and STOP.
 

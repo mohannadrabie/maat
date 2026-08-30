@@ -34,4 +34,4 @@ Assess every extracted item on: goal clarity · acceptance testability · scope 
 - **NEEDS-INFO** — plannable in shape, specific facts missing. Output blocking questions ONLY (max 5, ranked by build impact, each answerable in a line). For a doc, group questions under the requirement they block. Do not plan. Do not guess. STOP.
 - **CANT-PLAN** — too vague/unstructured to even ask precise questions. Name the single thing the human must decide or provide to make it askable. STOP.
 
-Never produce an implementation plan yourself — that's the implementer's job, on a READY input only. End with the single next action: "hand to /story" (READY) or "answer these, then re-run" (NEEDS-INFO / CANT-PLAN).
+Never produce an implementation plan yourself — that's the implementer's job, on a READY input only. End with the single next action: "hand to /plan" (READY) or "answer these, then re-run" (NEEDS-INFO / CANT-PLAN).

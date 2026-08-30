@@ -29,7 +29,7 @@ The one canonical implementation is the reporter script `scripts/adr-cache.mjs` 
 
 | Tag | Meaning | Action |
 |-----|---------|--------|
-| `[CACHE=HIT]` | catalog current + populated | Reviewers **reuse** `adrCatalog.adrs` (filter by `applicableTo`, read the `rules`); no ADR bodies re-read. **One exception:** `fullspectrum-reviewer` reads `adrCatalog.adrs` whole and unfiltered — no `applicableTo` slice — because its job is exactly the cross-domain seams a filtered read would hide. |
+| `[CACHE=HIT]` | catalog current + populated | Reviewers **reuse** `adrCatalog.adrs` (filter by `applicableTo`, read the `rules`); no ADR bodies re-read. **One exception:** `cross-domain-reviewer` reads `adrCatalog.adrs` whole and unfiltered — no `applicableTo` slice — because its job is exactly the cross-domain seams a filtered read would hide. |
 | `[CACHE=MISS]` | only from the read-only status mode | Run `--ensure` (or `--build`) to build it. Agents/commands already call `--ensure`, so they resolve this to HIT on the spot. |
 | `[CACHE=NONE]` | no ADRs configured | Nothing to cache; reviewers state "no applicable ADRs". |
 

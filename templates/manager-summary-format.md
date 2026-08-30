@@ -56,27 +56,27 @@ Each agent's own verdict enum differs; the Manager Summary's own `[SHIP | SHIP-W
 | Agent(s) | Enum (first value = clean) |
 |---|---|
 | code-reviewer, performance-reviewer | `SHIP` \| SHIP-AFTER-FIXES \| DO-NOT-SHIP |
-| security/network/appsec/api/data/architecture-reviewer, fullspectrum-reviewer | `APPROVE` \| APPROVE-WITH-CONDITIONS \| REWORK |
-| redteam, challenger, consumer-reviewer | `go` \| no-go |
-| analyst | `SAFE-TO-PATCH` \| PATCH-WITH-CONDITIONS \| REDESIGN-REQUIRED |
+| infra-security / network / app-security / api / data / architecture-reviewer, cross-domain-reviewer | `APPROVE` \| APPROVE-WITH-CONDITIONS \| REWORK |
+| red-team, design-challenger, usability-reviewer | `go` \| no-go |
+| impact-analyst | `SAFE-TO-PATCH` \| PATCH-WITH-CONDITIONS \| REDESIGN-REQUIRED |
 | debugger | `FIXED` \| UNREPRODUCIBLE \| BLOCKED |
 | story-implementer | `BUILD-COMPLETE` \| BLOCKED |
 
-`fullspectrum-reviewer` is a standing line in **every** Manager Summary above TRIVIAL (rule 9) — it isn't optional the way a domain pick is; its absence from the Per-reviewer list is itself a shirked-gate finding.
+`cross-domain-reviewer` is a standing line in **every** Manager Summary above TRIVIAL (rule 9) — it isn't optional the way a domain pick is; its absence from the Per-reviewer list is itself a shirked-gate finding.
 
 ## When to Use
 
 **Main session synthesizes inline:**
-- ONE domain reviewer ran, alongside `fullspectrum-reviewer` (its standing partner — not counted as a second reviewer)
+- ONE domain reviewer ran, alongside `cross-domain-reviewer` (its standing partner — not counted as a second reviewer)
 - Both verdicts clean (SHIP/SHIP-WITH-CONDITIONS or APPROVE/APPROVE-WITH-CONDITIONS)
 - No findings marked as BLOCKER
 - No ADR violations
 
 **Spawn manager agent:**
 - More than one domain reviewer ran (even if they agree)
-- ANY reviewer — including `fullspectrum-reviewer` — marked ANY finding as BLOCKER
+- ANY reviewer — including `cross-domain-reviewer` — marked ANY finding as BLOCKER
 - ANY reviewer marked ADR violation
-- Verdicts conflict (SHIP vs. REWORK, or domain reviewer vs. `fullspectrum-reviewer`)
+- Verdicts conflict (SHIP vs. REWORK, or domain reviewer vs. `cross-domain-reviewer`)
 - Tier disagreement detected
 
 ## Example
@@ -89,15 +89,15 @@ Each agent's own verdict enum differs; the Manager Summary's own `[SHIP | SHIP-W
 **Verdict:** SHIP-WITH-CONDITIONS
 
 **Per-reviewer:**
-- security-reviewer (Umbreon) → APPROVE-WITH-CONDITIONS → Fix IAM wildcard in terraform/modules/api/iam.tf:42 → `docs/reviews/api-security-2026-07-11.md` [full report read]
+- infra-security-reviewer (Umbreon) → APPROVE-WITH-CONDITIONS → Fix IAM wildcard in terraform/modules/api/iam.tf:42 → `docs/reviews/api-infra-security-2026-07-11.md` [full report read]
 - network-reviewer (Magnezone) → APPROVE → Clean, no reachability issues → `docs/reviews/api-network-2026-07-11.md` [receipt-trusted — not full-read]
-- fullspectrum-reviewer (Wobbuffet) → APPROVE → No cross-domain ADR collisions, no seam gaps found → `docs/reviews/api-fullspectrum-2026-07-11.md` [receipt-trusted — not full-read]
+- cross-domain-reviewer (Wobbuffet) → APPROVE → No cross-domain ADR collisions, no seam gaps found → `docs/reviews/api-cross-domain-2026-07-11.md` [receipt-trusted — not full-read]
 
 **ADR Compliance:**
 - ADR-003 (S3 encryption) → COMPLIANT
 - ADR-007 (IAM least privilege) → VIOLATED (BLOCKER)
   - Constraint: "No wildcard actions in IAM policies"
-  - Flagged by: security-reviewer (Umbreon)
+  - Flagged by: infra-security-reviewer (Umbreon)
   - Location: terraform/modules/api/iam.tf:42
 
 **Blockers:**
@@ -107,7 +107,7 @@ Each agent's own verdict enum differs; the Manager Summary's own `[SHIP | SHIP-W
 - Add CloudWatch alarm for failed API calls (defer to backlog, due 2026-07-20)
 
 **Next action:**
-Fix IAM policy wildcard, then run /ship-check
+Fix IAM policy wildcard, then run /verify
 ```
 
 ---
@@ -153,7 +153,7 @@ Replaces the Manager Summary whenever PRINCIPLES.md rule 16 fires (a stalled pre
 ### If NO-GO — the decision needed from you
 <a single question with lettered options. Nothing else. No homework.>
 
-**Reports:** `docs/reviews/<scope>-challenger-<date>.md` · `<scope>-architecture-<date>.md` · `<scope>-analyst-<date>.md`
+**Reports:** `docs/reviews/<scope>-design-challenger-<date>.md` · `<scope>-architecture-<date>.md` · `<scope>-impact-analyst-<date>.md`
 ```
 
 ---

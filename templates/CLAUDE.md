@@ -12,34 +12,34 @@ Review ceremony scales with risk per `docs/PRINCIPLES.md`.
 
 **These definitions are yours to extend.** Edit the tiers below, add your own, or name a class of change that always lands in one. For a rule that must bind rather than merely advise, write it as an **ADR**: by PRINCIPLES rule 9 an accepted ADR outranks this file, so `MUST: any change under payments/ is CRITICAL` in an ADR's `Rules for agents` binds the Manager's tier ratification, while the same sentence here is a convention it can weigh. You may raise the ceremony a class of change gets; you may not lower it below what its blast radius warrants, and security, data-integrity, legal and safety changes never drop out of review.
 
-**Who decides:** `story-implementer` proposes a tier in its Phase 1 plan with a one-line justification. **The Manager ratifies it** and challenges over- or under-tiering; the tier is the Manager's call, and you can overrule it. It is then persisted once to `docs/.maat-state.json`, and `/maat:review` and `/maat:ship-check` reuse it rather than re-deriving. Reviewers read the tier and calibrate to it; they do not re-litigate it.
+**Who decides:** `story-implementer` proposes a tier in its Phase 1 plan with a one-line justification. **The Manager ratifies it** and challenges over- or under-tiering; the tier is the Manager's call, and you can overrule it. It is then persisted once to `docs/.maat-state.json`, and `/maat:review` and `/maat:verify` reuse it rather than re-deriving. Reviewers read the tier and calibrate to it; they do not re-litigate it.
 
 ### TRIVIAL
 - Docs, comments, formatting, cosmetic changes. Tests + self-review, ship. No formal review.
 
 ### STANDARD
 - Most feature work, refactors, config. ONE domain reviewer (chosen by what changed) + implementer.
-- **Infra reviewers**: `network-reviewer`, `security-reviewer` (IAM/secrets/exposure), `consumer-reviewer` (self-service ADR)
-- **App reviewers**: `appsec-reviewer` (authz/injection/deps), `api-reviewer` (contracts), `data-reviewer` (schema/migrations), `performance-reviewer`
+- **Infra reviewers**: `network-reviewer`, `infra-security-reviewer` (IAM/secrets/exposure), `usability-reviewer` (self-service ADR)
+- **App reviewers**: `app-security-reviewer` (authz/injection/deps), `api-reviewer` (contracts), `data-reviewer` (schema/migrations), `performance-reviewer`
 - **Either**: `architecture-reviewer` (design), `code-reviewer` (correctness/tests)
 - **`test-writer`** (black-box acceptance tests, written BEFORE the code exists) — not a reviewer, dispatched during Phase 1 planning, picked by what the plan says will change: **the moment the story's plan identifies a new/changed UI flow or API surface**, the same way a domain reviewer is picked by what changed, before a diff exists. Not dispatched against a story with no externally observable behavior change (pure internal refactor, infra-only, schema-only) — that stays covered by `story-implementer`'s own unit tests, unchanged. Does not count against the one-domain-reviewer pick above; it runs *before* build, not instead of the post-build review.
 
 ### CRITICAL
 - Sensitive areas (IAM, network, auth, payments, migrations, public API), prod-facing, security-relevant.
-- `redteam` (adversarial) + the relevant domain reviewer(s). A change spanning infra **and** app gets one reviewer per side, in parallel.
+- `red-team` (adversarial) + the relevant domain reviewer(s). A change spanning infra **and** app gets one reviewer per side, in parallel.
 
 ### Every tier above TRIVIAL
-- `fullspectrum-reviewer` always joins the domain reviewer(s) — the standing cross-domain pass that reads the WHOLE ADR catalog (not a domain slice) and catches what falls in the seams between lanes. It doesn't count against the "never more than two reviewers" cap (PRINCIPLES.md rule 9).
+- `cross-domain-reviewer` always joins the domain reviewer(s) — the standing cross-domain pass that reads the WHOLE ADR catalog (not a domain slice) and catches what falls in the seams between lanes. It doesn't count against the "never more than two reviewers" cap (PRINCIPLES.md rule 9).
 
 ## Workflow Loop
 
 **Primary command: `/maat:ship <story>`** — the **Manager (Alakazam) conducts** the full loop, invoking each agent (across both domains, by what the change touches) and speaking to you at every gate:
 ```
-intake → plan → test-first (if UI or API surface changes) → build → review → ship-check → audit → merge-handoff
+intake → plan → test-first (if UI or API surface changes) → build → review → verify → audit → merge-handoff
 ```
 The `test-first` stage is **conditional**, seated by `test-writer` — it runs only when Phase 1's plan identifies a new/changed UI flow or API surface (see the STANDARD-tier reviewer list above), the same way a domain reviewer is picked by what changed. `story-implementer` does not start Phase 2 (build) until `test-writer`'s tests exist and are confirmed red (`RED-CONFIRMED` on its receipt); a story with no externally observable behavior change skips this stage entirely and goes straight from `plan` to `build`.
 
-Individual commands: `/maat:story`, `/maat:review`, `/maat:debug`, `/maat:ship-check`, `/maat:manager`, `/maat:redteam`, `/maat:audit-reviewers`, `/maat:adr-amend`, `/maat:help`, `/maat:init`.
+Individual commands: `/maat:plan`, `/maat:review`, `/maat:debug`, `/maat:verify`, `/maat:resolve`, `/maat:red-team`, `/maat:audit`, `/maat:adr-amend`, `/maat:help`, `/maat:init`.
 
 ## Human-only actions
 
@@ -83,7 +83,7 @@ Applies to every GitHub Issue this project's workflow creates once a GitHub Proj
 
 ### Review Verdicts → Issue Status
 
-The `verdict:go` / `verdict:conditional` / `verdict:no-go` / `verdict:reject` labels apply **only** to `challenger`/design-council rounds (a Feature or PR a pre-build or post-build design loop ruled on) — they are not the per-reviewer verdict enum itself (`docs/manager-summary-format.md` has that table). General rule for every reviewer type, keyed off the first (clean) value in that table:
+The `verdict:go` / `verdict:conditional` / `verdict:no-go` / `verdict:reject` labels apply **only** to `design-challenger`/design-council rounds (a Feature or PR a pre-build or post-build design loop ruled on) — they are not the per-reviewer verdict enum itself (`docs/manager-summary-format.md` has that table). General rule for every reviewer type, keyed off the first (clean) value in that table:
 - **Clean verdict** (`SHIP`, `APPROVE`, `go`, `SAFE-TO-PATCH`, `FIXED`, `BUILD-COMPLETE`) → no Issue Status change needed.
 - **Conditional-clean verdict** (`SHIP-WITH-CONDITIONS`, `APPROVE-WITH-CONDITIONS`, `PATCH-WITH-CONDITIONS`) → leave Status as-is, but the reviewer adds a same-turn comment naming the condition(s) and whether each is fix-now or deferred.
 - **REWORK/BLOCKED-class verdict** (`SHIP-AFTER-FIXES`, `DO-NOT-SHIP`, `REWORK`, `no-go`, `REDESIGN-REQUIRED`, `BLOCKED`, `UNREPRODUCIBLE`) → set `Status = Blocked-on-owner` on the tracked Issue/PR (if one exists for this change) with a comment naming the blocker and its unlock.
@@ -109,7 +109,7 @@ _Project invariants. The reviewer checks these every time (its standing checklis
 - _<add your project's own invariants>_
 
 ## Definition of Done (every change)
-_`/maat:ship-check` enforces this. Edit for your project._
+_`/maat:verify` enforces this. Edit for your project._
 - build / typecheck / lint / policy pass; tests green in CI with real counts (skipped ≠ passed); coverage gate real
 - infra: plan/changeset reviewed, destructive changes listed; app: migrations reversible, API changes back-compat or versioned
 - required review report(s) fresh in `docs/reviews/` with raw evidence

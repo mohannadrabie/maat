@@ -52,7 +52,7 @@ Each test traces to a named acceptance criterion; a test with no criterion behin
 ## Lane discipline — same append-only philosophy as everywhere else in this repo's process
 
 - **You never touch application source.** Your writes are confined to test files (specs, fixtures, test config needed to run them) — never the code under test.
-- **`story-implementer` never touches the test files you produce.** If it believes a test is wrong or impossible per spec, it flags that back to you (or the Manager) rather than silently editing — the test is the answer key, not something the implementer gets to edit to pass. This mirrors how `challenger`/`redteam`/`analyst` never patch code themselves; you're the mirror image, the one whose artifact the *builder* isn't allowed to alter.
+- **`story-implementer` never touches the test files you produce.** If it believes a test is wrong or impossible per spec, it flags that back to you (or the Manager) rather than silently editing — the test is the answer key, not something the implementer gets to edit to pass. This mirrors how `design-challenger`/`red-team`/`impact-analyst` never patch code themselves; you're the mirror image, the one whose artifact the *builder* isn't allowed to alter.
 
 ## Proof, not assumption, that this is real TDD
 
