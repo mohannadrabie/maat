@@ -86,7 +86,7 @@ Prefer to drive it yourself? Run the stages one at a time:
 
 ## The loop
 
-The Manager (**Thoth**) is the single voice to you. It delegates to specialists, carries results forward, and stops at every point where a human decision is needed.
+The Manager (**Osiris**) is the single voice to you. It delegates to specialists, carries results forward, and stops at every point where a human decision is needed.
 
 ```mermaid
 flowchart LR
@@ -316,7 +316,7 @@ Each command is also generated as a **skill**, so the same capability is reachab
 
 | Agent | Call sign | Role |
 |---|---|---|
-| `manager` | 🧠 Thoth | Conducts the loop, single voice to you |
+| `manager` | 🧠 Osiris | Conducts the loop, single voice to you |
 | `intake-refiner` | 🔮 Sia | Extracts requirements, never invents them |
 | `story-implementer` | 💪 Ptah | Decomposes, plans, builds |
 | `test-writer` | 🔑 Khnum | Black-box acceptance tests, written red first |

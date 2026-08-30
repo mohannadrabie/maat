@@ -33,7 +33,7 @@ Review ceremony scales with risk per `docs/PRINCIPLES.md`.
 
 ## Workflow Loop
 
-**Primary command: `/maat:ship <story>`** — the **Manager (Thoth) conducts** the full loop, invoking each agent (across both domains, by what the change touches) and speaking to you at every gate:
+**Primary command: `/maat:ship <story>`** — the **Manager (Osiris) conducts** the full loop, invoking each agent (across both domains, by what the change touches) and speaking to you at every gate:
 ```
 intake → plan → test-first (if UI or API surface changes) → build → review → verify → audit → merge-handoff
 ```

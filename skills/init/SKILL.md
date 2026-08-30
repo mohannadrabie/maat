@@ -195,7 +195,7 @@ Show the user:
 
 ## Workflow summary (for user)
 
-**The easy path is one command: `/maat:ship <story>`** — the **Manager (Thoth) conducts** the whole loop (intake → plan → build → review → verify → **audit** → merge-handoff), invoking each agent, carrying results forward, and speaking to you at every gate — including at intake when a story is too vague to plan, and at the audit stage that verifies every agent actually did its job before handoff. Prefer it day to day. The individual commands remain for manual control:
+**The easy path is one command: `/maat:ship <story>`** — the **Manager (Osiris) conducts** the whole loop (intake → plan → build → review → verify → **audit** → merge-handoff), invoking each agent, carrying results forward, and speaking to you at every gate — including at intake when a story is too vague to plan, and at the audit stage that verifies every agent actually did its job before handoff. Prefer it day to day. The individual commands remain for manual control:
 - `/maat:plan` — intake-gates the story (intake-refiner catches vague ones), then plans + sets the risk tier (persisted for the rest of the loop)
 - `/maat:review` — tier's reviewers; closes with the Manager Summary
 - `/maat:debug` — diagnose a failure, minimal fix, evidence-first

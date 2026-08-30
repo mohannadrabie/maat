@@ -16,7 +16,7 @@ Orient the user to maat. Do **no** work — this is a menu, not a task. Keep it 
 - **ADR cache:** the `📊 ADR cache …` line from `node docs/adr-cache.mjs` (HIT / MISS / NONE).
 
 ## 2. Two ways to run the flow
-- **Orchestrated (recommended):** `/maat:ship <story>` — the **Manager (Thoth)** conducts intake → plan → build → review → verify → audit → merge-handoff, invoking each agent and stopping at your approval and at every gate.
+- **Orchestrated (recommended):** `/maat:ship <story>` — the **Manager (Osiris)** conducts intake → plan → build → review → verify → audit → merge-handoff, invoking each agent and stopping at your approval and at every gate.
 - **Guided (manual):** you drive — `/maat:plan <story>` → `/maat:review` → `/maat:verify`.
 
 Same agents and stages in both modes.
