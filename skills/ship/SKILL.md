@@ -55,7 +55,7 @@ Report a one-line `✅`/`⚠️` per agent. A shirked step — missing report, m
 Any discrepancy found here is a **blocker** with its unlock, not a nit — this gate exists precisely to catch what the loop's cheap path or a lost-context resume let slip. Only when every report and every touched/archived decision has been read at least once do you proceed to the handoff.
 
 **6 · Manager Summary + merge handoff.** Close with the **Manager Summary** — the headline the human reads first, in the exact format from docs/manager-summary-format.md — then:
-- SHIPPABLE + clean audit → state the change is ready and give the human the exact **human-only** merge/apply command (you never apply or merge; the hooks keep that human-only).
+- SHIPPABLE + clean audit → state the change is ready and give the human the exact **human-only** merge/apply command (you never apply or merge; that stays with the human, always).
 - otherwise → the single most important blocker and its unlock.
 
 Then do the **session handoff** (see the manager's "Session handoff" section): update `docs/STATE.md` (the resume point), **report the ADR-cache tokens saved this session + the estimated cost saved**, **commit the working tree** (see below), and move any worth-doing-but-out-of-scope item to `docs/backlog.md` rather than into the diff.

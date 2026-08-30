@@ -32,43 +32,62 @@ Ask clarifying questions if needed:
 - Is this a one-time exception or does the ADR itself need updating?
 - What is the alternative constraint being proposed?
 
-### Step 2: Verify ADR Submodule State
+### Step 2: Decide which tier the ADR lives in
 
-Verify the ADR submodule is present (amendments require a git submodule with a remote):
+An ADR is in one of two tiers and they amend differently. **Find the file first, then branch on where it lives** — never assume a submodule.
 
-```bash
-# Check ADR submodule exists
-if [ ! -d "./adr/.git" ]; then
-    echo "❌ ERROR: No ADR submodule found. Cannot amend ADR."
-    echo "   ADRs must be in a git submodule to create amendment PRs."
-    exit 1
-fi
-
-# Check if we have a remote configured
-cd adr
-remote_url=$(git config --get remote.origin.url)
-if [ -z "$remote_url" ]; then
-    echo "❌ ERROR: ADR submodule has no remote origin."
-    echo "   Cannot create PR without upstream repository."
-    exit 1
-fi
-
-echo "✓ ADR submodule verified (remote: $remote_url)"
-```
-
-### Step 3: Create Amendment Branch
+- **`org` tier** — the file sits inside a git submodule (the centralized ADR repo, shared across projects). Amending it is a proposal to your organisation: its own branch, its own PR, in the ADR repo's remote. Steps 3 to 6.
+- **`project` tier** — the file sits in this repo (`docs/adr/`), owned by this project. Amending it is an ordinary change to this repo: edit in place on the current branch, riding the story's own PR through the normal review loop. Step 3P, then Step 7.
 
 ```bash
-cd adr
-
-# Get ADR file name (e.g., ADR-003 -> 0003-s3-encryption.md)
-adr_id="$1"  # e.g., ADR-003
-adr_file=$(find . -name "*${adr_id##*-}*.md" | head -1)
+# Locate the ADR across every root, org tier and project tier alike.
+adr_id="$1"                                    # e.g. ADR-003
+num="${adr_id##*-}"
+adr_file=$(find ./adr docs/adr -name "*${num}*.md" 2>/dev/null | head -1)
 
 if [ -z "$adr_file" ]; then
-    echo "❌ ERROR: Could not find ADR file for $adr_id"
+    echo "ERROR: no ADR file for $adr_id under ./adr or docs/adr."
+    echo "  Check the ID, and check adr.dir in maat.json points at the right root(s)."
     exit 1
 fi
+
+# Tier = is this file inside a git submodule? Same test the ADR cache uses.
+sub_root=""
+for s in $(git config -f .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}'); do
+    case "$adr_file" in "./$s/"*|"$s/"*) sub_root="$s" ;; esac
+done
+
+if [ -n "$sub_root" ]; then
+    remote_url=$(git -C "$sub_root" config --get remote.origin.url || true)
+    if [ -z "$remote_url" ]; then
+        echo "ERROR: $adr_file is in submodule '$sub_root', which has no remote origin."
+        echo "  An org-tier amendment needs an upstream repository to open the PR against."
+        exit 1
+    fi
+    echo "tier=org  file=$adr_file  submodule=$sub_root  remote=$remote_url"
+else
+    echo "tier=project  file=$adr_file  (in-repo, amends on the current branch)"
+fi
+```
+
+**Announce the tier in one line before going further.** The human needs to know whether they are proposing a change to their whole organisation or to this project alone. Those carry very different weight, and the difference is invisible from the ADR ID.
+
+### Step 3P: Project-tier amendment (in-repo ADR)
+
+No branch, no second PR. The amendment is a normal edit to a file this repo owns:
+
+1. Edit `$adr_file` in place with the same **Amendment Proposal** section Step 4 defines. Keep the original constraint quoted verbatim; append, never rewrite.
+2. Set `status` to `accepted - under review` and add the same `amendments:` frontmatter entry Step 4 specifies.
+3. Do **not** commit or push it yourself. It rides the story's own PR, so the tier's reviewer sees the ADR change next to the code change that justifies it — which is the whole reason a project-tier ADR lives in the repo.
+4. Rebuild the catalog so the new status reaches everyone downstream: `node docs/adr-cache.mjs --build`.
+5. Record it as a row in `docs/decisions.md` with a 14-day review-back date and `human ratification: pending`. This is the project tier's log, exactly as the amendment PR is the org tier's.
+
+Then go to **Step 7**. Steps 3 to 6 are org-tier only.
+
+### Step 3: Create Amendment Branch (org tier only)
+
+```bash
+cd "$sub_root"          # the submodule Step 2 identified
 
 # Create feature branch
 timestamp=$(date +%Y%m%d)
@@ -141,7 +160,7 @@ In the ADR body, add a new section at the end:
 ### Step 5: Commit and Push
 
 ```bash
-cd adr
+cd "$sub_root"
 
 # Stage the changes
 git add "$adr_file"
@@ -183,7 +202,7 @@ echo "✓ Pushed branch: $branch_name"
 Detect the git hosting platform and create PR:
 
 ```bash
-cd adr
+cd "$sub_root"
 
 # Detect platform
 remote_url=$(git config --get remote.origin.url)
@@ -271,15 +290,17 @@ else
 fi
 ```
 
-### Step 7: Record the amendment in the ADR change log (NOT decisions.md)
+### Step 7: Record the amendment where its tier keeps its log
 
-The amendment **PR** you created (Step 6) plus the ADR's `under-review` **status** (Step 8) ARE the log of this ADR change — the ADR amend flow is the single source of truth for ADR changes. Do **not** write to `docs/decisions.md`: that is the general app-level **Decision Log** and must stay free of ADR records.
+**Org tier.** The amendment **PR** you created (Step 6) plus the ADR's `under-review` **status** (Step 8) ARE the log of this ADR change — the ADR amend flow is the single source of truth for ADR changes. Do **not** write to `docs/decisions.md`: that is the general app-level **Decision Log** and must stay free of ADR records.
 
 Make sure the record lives in the ADR system:
 - The **amendment PR body** captures the requested change + rationale, the review-back date (`$(date -d '+14 days' +%Y-%m-%d)` — 14 days), and "human ratification: PENDING".
 - If the ADR format supports it, set the ADR frontmatter `status: proposed` (or `superseded`/`supersededBy` if replacing) and an `amendmentReason`, so the change is legible in the ADR itself.
 
-Nothing is written back to the main project's `docs/decisions.md`.
+Nothing is written back to the main project's `docs/decisions.md`. The ADR repo owns the record, because the decision belongs to the organisation and not to this project.
+
+**Project tier.** There is no second PR to carry the record, so `docs/decisions.md` **is** the log — the row you added at Step 3P, with its review-back date and `human ratification: pending`. Same discipline, different home: the org tier logs to the ADR repo it belongs to, the project tier logs to the project it belongs to. Never both, and never neither.
 
 ### Step 8: Update ADR Cache
 
@@ -330,8 +351,11 @@ Proceed with your code change, but link the PRs and monitor amendment status.
 
 ## Error Handling
 
-**If ADR submodule doesn't exist:**
-- "Cannot amend ADR: No ADR submodule configured. ADRs must be in a git submodule to support amendments."
+**If the ADR cannot be found under any configured root:**
+- "Cannot amend ADR: no file matching <id> under ./adr or docs/adr. Check the ID, and check `adr.dir` in maat.json points at the right root(s)." Never fall back to guessing which ADR was meant.
+
+**If an org-tier ADR's submodule has no remote:**
+- "Cannot open an amendment PR: submodule '<path>' has no remote origin." Say so and stop. Do not silently amend the file in place instead — an org-tier ADR belongs to the organisation, and editing it locally would fork a shared decision without anyone seeing it.
 
 **If user justification is vague:**
 - Ask specific questions: "What is the business impact of this constraint?" "Why can't the code be fixed to comply?"

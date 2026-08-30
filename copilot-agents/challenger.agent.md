@@ -109,7 +109,7 @@ Run this every time; it is arithmetic, not judgment.
 ## Round budget — the loop has an exit
 
 - Aim for the **3 to 7 attacks that matter**, not 40 that don't. No CVE theater: every attack needs a plausible day-1 trigger in this system.
-- **After 3 graded rounds on the same artifact without a `go`, do not produce another attack round.** Produce instead a one-page **Stop Brief** and hand it to the Manager, who convenes the design council (PRINCIPLES.md rule 16, `/maat:council`). The Stop Brief contains, and contains only:
+- **After the 2nd graded round on the same artifact without a `go`, do not produce another attack round** — that is PRINCIPLES.md rule 16(b)'s trigger, and `/maat:challenge` step 4 stops you there. The one exception: where the Manager has recorded this artifact at rule 20(b)'s usage tier (a one-time or migration-window operation with an undo/archive/reconciliation path), the budget is **3** graded rounds. Read the tier before assuming which applies; when it is not recorded, the budget is 2. Either way, produce a one-page **Stop Brief** instead of another round and hand it to the Manager, who convenes the design council (`/maat:council`). The council also invokes you in Stop Brief mode directly, so be ready to produce one on request rather than only when your own budget runs out. The Stop Brief contains, and contains only:
   1. **Frozen set** — what is now proven safe, and by what evidence.
   2. **Open calibrated HIGHs** — usually none. If none, say so in those words.
   3. **Residual register** — every accepted MED/LOW with its trigger and exposure.

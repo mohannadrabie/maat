@@ -1,6 +1,6 @@
 ---
 name: adr-amend
-description: Propose an ADR change (opens a PR to the ADR repo) when an ADR is wrong rather than your code. Needs an ADR submodule with a remote.
+description: Propose an ADR change when an ADR is wrong rather than your code. An org-tier ADR (in the submodule) gets its own PR to the ADR repo; a project-tier ADR (docs/adr/) amends in place on the current branch.
 user-invocable: true
 disable-model-invocation: true
 argument-hint: <ADR-ID> <reason for override>
@@ -12,16 +12,25 @@ Launch the ADR amendment workflow for: $ARGUMENTS (ADR ID + reason for override)
 
 **When to use:** A reviewer flagged an ADR violation as a BLOCKER, and you believe the ADR itself needs updating rather than fixing the code.
 
-**What this does:**
+**What this does** depends on which tier the ADR lives in, and the agent decides that by finding the file, never by assuming:
+
+**Org tier** (the ADR is inside the centralized ADR submodule):
 1. Reads the ADR and your code change
-2. Creates feature branch in ADR submodule
-3. Proposes amendment with your justification
-4. Opens PR in ADR repository — this PR **is** the log of the ADR change
-5. Marks the ADR `under-review` and sets a 14-day review-back date (in the PR / ADR status, not docs/decisions.md)
+2. Creates a feature branch in the ADR submodule
+3. Proposes the amendment with your justification
+4. Opens a PR in the ADR repository — that PR **is** the log of the ADR change
+5. Marks the ADR `under-review` with a 14-day review-back date (in the PR and ADR status, not docs/decisions.md)
+
+**Project tier** (the ADR is in this repo, `docs/adr/`):
+1. Reads the ADR and your code change
+2. Edits the ADR in place on the current branch, appending the same Amendment Proposal section
+3. Leaves it uncommitted so it rides the story's own PR, where the tier's reviewer sees the ADR change next to the code that justifies it
+4. Rebuilds the ADR catalog
+5. Records the amendment in `docs/decisions.md` with a 14-day review-back date — here `decisions.md` **is** the log, because there is no second PR
 
 **Requirements:**
-- ADR repository must be a git submodule (./adr/)
-- ADR submodule must have remote origin configured
+- The ADR must be findable under a configured `adr.dir` root (`./adr/` or `docs/adr/`)
+- For an org-tier amendment only: the submodule must have a remote origin configured
 - You must provide clear business/technical justification
 
 **Usage:**
@@ -59,7 +68,8 @@ Launch the `adr-amender` agent with the ADR ID and user's stated reason. The age
 5. If rejected: revert code or fix to comply with ADR
 
 **Error cases:**
-- No ADR submodule: "Cannot amend — ADRs must be in git submodule"
+- ADR not found under any configured root: the agent names the roots it searched and asks you to check the ID or `adr.dir`
+- Org-tier ADR whose submodule has no remote: cannot open the amendment PR; the agent says so rather than amending silently
 - Vague justification: Agent will ask specific questions
 - Code bug (not ADR issue): Agent will redirect to fix code instead
 
