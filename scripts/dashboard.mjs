@@ -174,6 +174,30 @@ const SLUG_TO_AGENT = {
 };
 const agentOf = slug => SLUG_TO_AGENT[slug] || slug;
 
+// Report filenames are `<scope>-<slug>-<YYYY-MM-DD>.md`, and BOTH halves can contain hyphens
+// ("auth-rotation" reviewed by "infra-security"). A greedy `(.*)-([a-z-]+)-<date>` split therefore
+// hands back the SHORTEST slug it can get away with — "security" for infra-security, "domain" for
+// cross-domain — which silently falls out of the slug map and gets attributed to an agent that does
+// not exist. So match the slug against the known set, longest first, and only fall back to the
+// generic split for a slug this build has never heard of.
+const KNOWN_SLUGS = [
+  "impact-analyst-exposure", "design-challenger", "infra-security", "app-security",
+  "cross-domain", "impact-analyst", "architecture", "performance", "test-writer",
+  "red-team", "usability", "network", "debug", "verify", "code", "data", "api",
+].sort((a, b) => b.length - a.length);
+
+function parseReportName(file) {
+  const m = file.match(/^(.*)-(\d{4}-\d{2}-\d{2})\.md$/);
+  if (!m) return null;
+  const [, stem, date] = m;
+  for (const slug of KNOWN_SLUGS) {
+    if (stem === slug) return { scope: "", slug, date };
+    if (stem.endsWith(`-${slug}`)) return { scope: stem.slice(0, -(slug.length + 1)), slug, date };
+  }
+  const g = stem.match(/^(.*?)-([a-z]+(?:-[a-z]+)*)$/);
+  return g ? { scope: g[1], slug: g[2], date } : { scope: stem, slug: "unknown", date };
+}
+
 // ---------- 2b. RECEIPT blocks in docs/reviews/*.md (quality, not just volume) ----------
 // Thirteen agents already close every report with a structured RECEIPT carrying the verdict, the
 // complete finding list with severities, a counts checksum, an evidence-tier breakdown and the raw
@@ -192,12 +216,12 @@ function readReceipts() {
 
     // Agent and date come from the filename convention <scope>-<agent>-<YYYY-MM-DD>.md, which every
     // agent is told to use. A file that does not match still counts toward totals, as "unknown".
-    const nm = f.match(/^(.*)-([a-z]+(?:-[a-z]+)*)-(\d{4}-\d{2}-\d{2})\.md$/);
+    const nm = parseReportName(f);
     const rec = {
       file: f,
-      scope: nm ? nm[1] : f.replace(/\.md$/, ""),
-      agent: nm ? agentOf(nm[2]) : "unknown",
-      date: nm ? nm[3] : "",
+      scope: nm ? nm.scope : f.replace(/\.md$/, ""),
+      agent: nm ? agentOf(nm.slug) : "unknown",
+      date: nm ? nm.date : "",
       isMetaAudit: /^meta-audit-/.test(f),
       hasReceipt: false,
       verdict: "", issues: 0, suspicions: 0, clean: 0,

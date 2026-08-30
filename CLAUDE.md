@@ -29,7 +29,7 @@ node scripts/sync-copilot-format.mjs --check  # verify in sync (CI runs this)
 
 Maat is the **loop**: agentic workflow, commands and skills. It is not an enforcement layer. Nothing here intercepts or blocks a tool call, and no claim in this repo should imply otherwise.
 
-The one hook this plugin ships is a `SessionStart` best-effort ADR-cache warm-up. If a change would add a hook that gates, blocks or audits a tool call, it belongs in a separate governance project, not here.
+The one hook this plugin ships is a `SessionStart` best-effort session brief (`scripts/session-brief.mjs`): it warms the ADR cache and prints one line of resume context. It reads and prints; it never writes and never blocks. If a change would add a hook that gates, blocks or audits a tool call, it belongs in a separate governance project, not here.
 
 Human-only actions (`git merge`, `gh pr merge`, pushing the default branch, `terraform apply`, prod deploys) are a discipline the agents keep and the scaffolded `CLAUDE.md` states — they are not enforced by this plugin. Where they need to hold, they hold through credential separation, branch protection and a required CI check.
 

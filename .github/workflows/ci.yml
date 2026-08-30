@@ -32,7 +32,7 @@ jobs:
         # syntax error in one of them breaks every project that updates. Parse each.
         run: |
           set -euo pipefail
-          for f in scripts/adr-cache.mjs scripts/decisions-archive.mjs scripts/dashboard.mjs scripts/run-log.mjs scripts/sync-copilot-format.mjs scripts/validate-plugin.mjs; do
+          for f in scripts/adr-cache.mjs scripts/decisions-archive.mjs scripts/dashboard.mjs scripts/run-log.mjs scripts/receipt-check.mjs scripts/session-brief.mjs scripts/sync-copilot-format.mjs scripts/validate-plugin.mjs; do
             node --check "$f"
             echo "ok: $f"
           done

@@ -246,7 +246,27 @@ Every agent surfaces its own `ADR cache …` line, so you can see what was reuse
 
 ### Receipts, not re-reads
 
-Every specialist persists a dated report to `docs/reviews/` and closes with a structured `RECEIPT:` block. The Manager carries the receipt forward instead of reopening the file — but reopens it the moment anything is off: a checksum that doesn't match its finding list, a clean verdict with a HIGH finding, a blocking finding backed by no evidence, a report with no `REVIEW_LOG.md` row. On CRITICAL tier every report is read in full regardless.
+Every specialist persists a dated report to `docs/reviews/` and closes with a structured `RECEIPT:` block. The Manager carries the receipt forward instead of reopening the file, and reopens it the moment anything is off. On CRITICAL tier every report is read in full regardless.
+
+**Deciding "off" is arithmetic, so a script does it.** `docs/receipt-check.mjs` reads what is already on disk and prints `OK` / `REOPEN` / `UNREAD` per report:
+
+```text
+receipt-check: 4 report(s) — 1 OK, 2 REOPEN, 1 UNREAD
+  OK      auth-code-2026-08-30.md            SHIP
+  REOPEN  auth-infra-security-2026-08-30.md  APPROVE
+          → checksum: counts say issues=1 suspicions=0 clean=0, but 2/0/0 lines are listed
+          → clean verdict "APPROVE" with 2 [ISSUE] line(s)
+          → checks=n/a while carrying a blocking finding — nothing was run
+          → [HIGH] present with no `Exposure: … basis:` line anywhere in the report
+  UNREAD  auth-network-2026-08-30.md         -
+          → no RECEIPT block in the persisted report
+```
+
+It covers eleven mechanical triggers: checksum against the listed findings, verdict against that agent's clean enum, a clean verdict contradicted by its own findings, any HIGH or SUSPICION, failed or skipped checks under a clean verdict, a blocker resting only on derived evidence, a HIGH with no stated exposure, a missing `REVIEW_LOG.md` row, a missing bug Issue, a report whose `HEAD:` predates the commit in hand, and an outstanding human ruling in state.
+
+**Four triggers it deliberately does not touch,** and it prints them at the bottom of every run so they cannot be automated away: a terse line that reads worse than its own severity tag, whether a claimed ADR violation is real, whether zero findings is honest for the size of the diff, and whether a HIGH's stated exposure holds up. Those are judgement, and they stay with the Manager.
+
+It is advisory. It exits 0 on every path including its own failure, `OK` means the mechanics passed rather than that the report is right, and anything it could not check prints with a `?` so unchecked never looks like clean.
 
 ### An audit that is discipline, not paperwork
 
@@ -262,9 +282,18 @@ The plugin's entire hook surface is a single `SessionStart` entry:
 
 | Hook | Trigger | What it does | Turning it off |
 |---|---|---|---|
-| ADR cache warm-up | `SessionStart` | Runs `docs/adr-cache.mjs --ensure` best-effort, so the first review of a session is a cache HIT instead of a cold MISS | Disable the plugin. In a project it is already a no-op when `docs/adr-cache.mjs` is absent. |
+| Session brief | `SessionStart` | Runs `docs/session-brief.mjs` best-effort: warms the ADR cache so the first review is a HIT instead of a cold MISS, then prints one line of resume context | Disable the plugin. In a project it is already a no-op when the script is absent. |
 
-It is wrapped in a try/catch with a 10 second timeout and cannot fail a session. Nothing else in this plugin registers a hook, and nothing here intercepts a tool call. See [Non-goals](#non-goals).
+The brief is one line, on purpose:
+
+```text
+📋 maat: scope=auth-rotation · tier=CRITICAL · rounds=1 · reviews 2 at HEAD, 1 stale · 1 decision(s) due to archive
+⚠️  maat: a human ruling is outstanding — do not resume a graded verdict past it
+```
+
+Every fact in it otherwise costs a resuming session several tool calls and a few thousand tokens of file content to rediscover. It reads, it prints, it never writes. Projects initialized before this script existed fall back to the old ADR-cache-only behavior automatically.
+
+The whole thing is wrapped in a try/catch and cannot fail a session. Nothing else in this plugin registers a hook, and nothing here intercepts a tool call. See [Non-goals](#non-goals).
 
 ### State that survives the session
 
@@ -380,6 +409,9 @@ your-project/
 │   ├── dashboard.mjs            # local insights dashboard
 │   ├── run-log.mjs              # appends the Manager's judgements to run-log.jsonl
 │   ├── run-log.jsonl            # append-only record of those judgements (committed)
+│   ├── receipt-check.mjs        # mechanical reopen triggers — advisory, never a gate
+│   ├── session-brief.mjs        # what the SessionStart hook runs
+│   ├── maat-ci.yml.example      # opt-in report-only PR check; you move it, or don't
 │   ├── .maat-state.json         # tier, ADR catalog, loop state
 │   └── reviews/                 # dated review evidence
 └── adr/  or  docs/adr/
@@ -470,7 +502,8 @@ Copy that into **your** settings (`~/.claude/settings.json` or the project's `.c
 
 Maat carries the **loop**. It is deliberately not an enforcement layer:
 
-- **No tool-call gating.** The entire hook surface is one best-effort `SessionStart` ADR-cache warm-up. There is no pre-tool-use guard, no protected-path check, no report or team gate.
+- **No tool-call gating.** The entire hook surface is one best-effort `SessionStart` brief that warms the ADR cache and prints a resume line. There is no pre-tool-use guard, no protected-path check, no report or team gate.
+- **The scripts inform, they never decide.** `receipt-check.mjs` prints `REOPEN` rows and the Manager rules on them; `run-log.mjs` records judgements nothing reads back to block anything. Both exit 0 on every path, including their own failure. `/maat:init` scaffolds a CI workflow as `docs/maat-ci.yml.example` and deliberately does **not** put it in `.github/workflows/` — moving it there, and deciding whether it becomes a required check, is yours.
 - **Human-only actions are a discipline, not a boundary.** `git merge`, `gh pr merge`, pushing the default branch, `terraform apply` and prod deploys stay with you because the agents are told to leave them alone — not because something stops them. Where that needs to be genuinely enforceable, enforce it with credential separation, branch protection and a required CI check.
 - **Review reports are evidence, not keys.** A dated report is what the Manager and the next reviewer work from. It does not unlock a path, because no path is locked.
 
