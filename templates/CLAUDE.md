@@ -8,7 +8,11 @@ This is a **full-stack** project (infrastructure **and** application code) using
 
 ## Risk Tier Definitions
 
-Review ceremony scales with risk per `docs/PRINCIPLES.md`:
+Review ceremony scales with risk per `docs/PRINCIPLES.md`.
+
+**These definitions are yours to extend.** Edit the tiers below, add your own, or name a class of change that always lands in one. For a rule that must bind rather than merely advise, write it as an **ADR**: by PRINCIPLES rule 9 an accepted ADR outranks this file, so `MUST: any change under payments/ is CRITICAL` in an ADR's `Rules for agents` binds the Manager's tier ratification, while the same sentence here is a convention it can weigh. You may raise the ceremony a class of change gets; you may not lower it below what its blast radius warrants, and security, data-integrity, legal and safety changes never drop out of review.
+
+**Who decides:** `story-implementer` proposes a tier in its Phase 1 plan with a one-line justification. **The Manager ratifies it** and challenges over- or under-tiering; the tier is the Manager's call, and you can overrule it. It is then persisted once to `docs/.maat-state.json`, and `/maat:review` and `/maat:ship-check` reuse it rather than re-deriving. Reviewers read the tier and calibrate to it; they do not re-litigate it.
 
 ### TRIVIAL
 - Docs, comments, formatting, cosmetic changes. Tests + self-review, ship. No formal review.

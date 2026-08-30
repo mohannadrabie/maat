@@ -122,17 +122,6 @@ flowchart LR
 | **Pre-merge read** | Every report the loop only trusted by its receipt gets one full read before anything is called shippable | A body-vs-receipt discrepancy is a blocker, not a nit |
 | **Merge handoff** | Manager Summary + session handoff + a commit | **You** merge. Always. |
 
-### Not every HIGH stops you
-
-A reviewer reports; it does not get the last word on whether a narrow finding stalls the loop. Before the Manager presents any blocker, it triages:
-
-- **Security, data-integrity, legal and safety findings never triage down.** They go straight to you.
-- Everything else is read against the finding's own mandatory `Exposure: ~N% of <users|requests|runs>, basis: measured|counted-in-code|assumption` line.
-- An `assumption` basis, or a missing exposure line, escalates to the `analyst` for a real mechanical count rather than going back to the reviewer that guessed. The finding stays blocking while that runs.
-- Under 3% of users, non-exempt, with a real basis, becomes a condition on the ship rather than a stop, with the reasoning stated in one line.
-
-A downgraded finding is still reported. Triage decides whether it blocks, never whether you see it.
-
 ### Ceremony scales with risk
 
 Who reviews is decided by the risk tier, ratified by the Manager — you can challenge over- or under-tiering.
@@ -145,7 +134,58 @@ Who reviews is decided by the risk tier, ratified by the Manager — you can cha
 
 `fullspectrum-reviewer` joins every tier above TRIVIAL and does not count against the reviewer cap — it is the standing cross-domain pass that reads the **whole** ADR catalog and catches what falls in the seams between reviewer lanes.
 
+**Who decides the tier.** `story-implementer` proposes one in its plan with a one-line justification. **The Manager ratifies it**, challenging over- or under-tiering, and the tier is its call. It is persisted once to `docs/.maat-state.json`, and `/maat:review` and `/maat:ship-check` reuse it rather than re-deriving, so they cannot disagree with the plan. Reviewers calibrate to the tier; they do not re-litigate it. You can overrule it at any point.
+
+**The tier table is yours to extend.** The definitions live in your project's `CLAUDE.md`, and you can add tiers, rename them, or name classes of change that always land in one. For a rule that binds rather than advises, write it as an **ADR**: an accepted ADR outranks `CLAUDE.md` (rule 9), so `MUST: any change under payments/ is CRITICAL` in an ADR's `Rules for agents` binds the Manager's ratification. A project rule may raise ceremony, never lower it, and security, data-integrity, legal and safety changes never drop out of review.
+
 ---
+
+### When something goes wrong
+
+The eight stages above are the happy path. Most of the interesting behaviour is what happens when a reviewer says no, and it is deliberately not "ask the human" at the first sign of trouble.
+
+```mermaid
+flowchart LR
+    R(["finding"]) --> T["triage"]
+    T -->|narrow| C(["a condition"])
+    T -->|blocker| D{"disagree?"}
+    D -->|yes| M["Manager rules"]
+    D -->|no| S{"2 rounds<br/>no clean verdict?"}
+    M --> S
+    S -->|no| FX(["fix, re-review"])
+    S -->|yes| CO["design council"]
+    CO -->|GO| A(["loop continues"])
+    CO -->|NO-GO| H(["over to you"])
+
+    style R fill:#ffd8a8,stroke:#f59e0b,color:#1e1e1e
+    style T fill:#c3fae8,stroke:#06b6d4,color:#1e1e1e
+    style C fill:#b2f2bb,stroke:#22c55e,color:#1e1e1e
+    style D fill:#ffffff,stroke:#06b6d4,color:#1e1e1e
+    style S fill:#ffffff,stroke:#06b6d4,color:#1e1e1e
+    style M fill:#d0bfff,stroke:#8b5cf6,color:#1e1e1e
+    style CO fill:#d0bfff,stroke:#8b5cf6,color:#1e1e1e
+    style FX fill:#fff3bf,stroke:#f59e0b,color:#1e1e1e
+    style A fill:#b2f2bb,stroke:#22c55e,color:#1e1e1e
+    style H fill:#a5d8ff,stroke:#4a9eed,color:#1e1e1e
+```
+
+**Filter 1, evidence.** Only `demonstrated` (something ran and failed, raw output pasted) or `code-traced` (`path:line` in shipped code) can block. A finding reasoned from a document caps at MED and becomes a named failing test. A reviewer whose receipt says `checks=n/a` cannot block at all.
+
+**Filter 2, blast radius.** Every HIGH carries `Exposure: ~N% of <users|requests|runs>, basis: measured|counted-in-code|assumption`. Findings rank by exposure × irreversibility × silence, not by how alarming they sound.
+
+**Filter 3, triage.** Security, data-integrity, legal and safety go straight to you, always. Everything else: an `assumption` basis escalates to the **`analyst`**, which counts the real affected surface mechanically and pastes the command rather than sending it back to the reviewer that guessed, and the finding stays blocking meanwhile. Under 3% with a real basis becomes a condition on the ship; at or above 3% it is confirmed as a blocker.
+
+**Only executed evidence can block.** A finding reasoned from a document rather than the code is capped at MED and becomes a named failing test. A reviewer that ran nothing cannot block at all.
+
+**Blast radius is stated, not felt.** Every HIGH carries `Exposure: ~N% of <users|requests|runs>, basis: measured|counted-in-code|assumption`. An `assumption` basis escalates to the **`analyst`**, which counts the real affected surface mechanically and pastes the command. It does not go back to the reviewer that guessed, and the finding stays blocking while that runs. Findings rank by exposure × irreversibility × silence.
+
+**The `analyst` also prices fixes.** Given candidate fixes, it classifies each as CONTAINS (removes the defect class), RELOCATES (moves it somewhere else, and says where) or WIDENS (creates surface the old defect did not have). That verdict is one of the four GO conditions at the council.
+
+**The council convenes once, and its verdict is arithmetic.** Two graded challenger verdicts without a go, or two consecutive REWORK verdicts on the same target, or a fix that reverses something an earlier round proved, and `/maat:council` seats `challenger`, `architecture-reviewer` and `analyst` in parallel on the same packet. GO requires all four: no open blocking HIGH, an architect APPROVE on a path, an analyst verdict on that path that is not WIDENS, and the gating verification run or scheduled as build task 1. **On GO the loop continues and nobody wakes you.** On NO-GO, or a second stall on the same shape, it hard-stops and you get a Path-Forward Brief: business impact first, one-sentence root cause, options with cost and risk, the recommendation, and any dissent verbatim.
+
+**When the loop stops with nothing genuinely blocking**, the default recommendation is "build now: every open finding becomes a day-1 failing test." Another design round is the explicit override, never the default.
+
+A downgraded finding is still reported, with its exposure figure and the reasoning. Triage decides whether something blocks; it never decides whether you see it.
 
 ## What makes it different
 
