@@ -7,7 +7,7 @@
 Plans, tests, builds, reviews, debugs and prepares your change for merge — routing each change to the minimum correct reviewer set instead of treating everything the same way.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-informational.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.0-informational.svg)](CHANGELOG.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8b5cf6.svg)](https://docs.claude.com/en/docs/claude-code)
 [![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-plugin-24292e.svg)](https://github.com/features/copilot)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)

@@ -2,9 +2,9 @@
 
 All notable changes to the `maat` plugin are recorded here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — 2026-08-29
+## [1.0.0] — 2026-08-30
 
-First release of `maat` as a standalone agentic-workflow plugin, in a fresh repository.
+First release of `maat` as a standalone agentic-workflow plugin, in a fresh repository. The mechanical layer — the scripts, manifests and generated surfaces — is tested; the agent definitions are prompts and have not yet been exercised end to end on a real project.
 
 ### Added
 
@@ -26,6 +26,6 @@ Maat carries the loop only. The governance engine that used to ship alongside it
 
 Consequences worth stating plainly:
 
-- The plugin's whole hook surface is one best-effort `SessionStart` ADR-cache warm-up. Nothing here intercepts or blocks a tool call.
+- The plugin's whole hook surface is one best-effort `SessionStart` session brief (ADR-cache warm-up plus one line of resume context). Nothing here intercepts or blocks a tool call.
 - Human-only actions (merge, push to default, `terraform apply`, prod deploys) are a discipline the agents keep, not a boundary this plugin enforces. Where that needs to hold, it holds through credential separation, branch protection and a required CI check.
 - Per-project config is `maat.json` (ADR locations and sync behavior) and loop state is `docs/.maat-state.json`.
