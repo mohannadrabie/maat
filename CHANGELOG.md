@@ -2,6 +2,26 @@
 
 All notable changes to the `maat` plugin are recorded here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-09-10
+
+Generic fixes distilled from a live review of an in-progress project's GitHub Milestone/Issue usage and review-round ceremony — bumped major since the rule 16 threshold change and the Milestone bootstrap default both change existing-project behavior once adopted (`/maat:init --update` / a fresh `/maat:init` run), not just additive features.
+
+### Added
+
+- **`/maat:tldr`** — new command, persona Seshat: plain-English project status (what's happening now, what needs a human, overall progress by feature), live GitHub state first, no verdict/severity jargon. Read-only.
+- **CI-alive preflight in `/maat:ship`** — checks the latest CI run before any story work starts; a run that never completed (died silently at an early step) is now a blocker instead of an unnoticed gap; a completed run is reported (green or red) without blocking.
+- **`maat.json → reportStyle: "lean"`** — shortens review-report prose (less narrative per finding, no preamble) without touching the `RECEIPT:` block, evidence tiers, checks, or round-counting. A speed/token lever, not a rigor lever (PRINCIPLES rule 10). Toggle any time, no re-init needed.
+- **Dashboard efficiency panel** (`scripts/dashboard.mjs`) — rounds-to-ship distribution (median/p90), findings-per-round trend per story (still finding things vs. converged), rule 16 council trigger rate, receipt reopen rate, fix-now vs. deferred-to-backlog ratio, and age of open `current-focus`/`blocked-on-owner` items. Deliberately not a docs-vs-code ratio: this plugin's reports and receipts are the evidence a review happened, so fewer of them isn't automatically better.
+- **`run-log.mjs` `story-shipped` event** — logged once per story at `/maat:ship` stage 6 handoff (rounds, reports, findings, ADR tokens saved, whether council fired); the dashboard's rounds-to-ship distribution reads this instead of guessing from `docs/REVIEW_LOG.md` row counts.
+- **`current-focus` label bootstrap** — `/maat:init` now actually creates the label `docs/issue-template.md` already documented but never instantiated; `/maat:ship` applies it automatically to anything set `blocked-on-owner` during a run.
+
+### Changed
+
+- **PRINCIPLES.md rule 16(c) raised from 2 to 3 consecutive non-clean review verdicts** before the design council convenes, so one early miss on an otherwise-ordinary story doesn't trigger full council ceremony. **New rule 16(d): 6 total non-clean verdicts** on the same review target, cumulative and never reset by a clean verdict in between — catches a story that clears one new distinct issue every round and never strings together 3 consecutive misses, but is still burning as many rounds as one that did. Updated everywhere referenced: `ship.md`, `council.md`, `agents/manager.md`.
+- **`/maat:init`'s Milestone bootstrap now defaults to one Milestone per deliverable feature, containing multiple stories** — never one Milestone per story. A project already on the old per-story shape gets flagged, not auto-migrated.
+- **`/maat:init`'s ADR bootstrap guidance fixed**: a multi-domain/fullstack project setting `adr.dir` to org-tier per-domain submodule paths no longer silently drops the project-tier `docs/adr/` root — the guidance now always retains it unless a human explicitly confirms there are no project-tier ADRs.
+- **`/maat:ship` stage 6** now closes a story's Milestone when it was the last open story in it, and logs the `story-shipped` run-log event.
+
 ## [1.0.0] — 2026-08-30
 
 First release of `maat` as a standalone agentic-workflow plugin, in a fresh repository. The mechanical layer — the scripts, manifests and generated surfaces — is tested; the agent definitions are prompts and have not yet been exercised end to end on a real project.
