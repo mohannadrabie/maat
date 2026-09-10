@@ -195,6 +195,7 @@ A downgraded finding is still reported, with its exposure figure and the reasoni
 | `/maat:plan <story \| requirements-doc \| project>` | Intake, planning and risk tiering only |
 | `/maat:review [lane] [scope]` | Run the tier's reviewers (default: current diff vs `main`) |
 | `/maat:verify [branch]` | Pre-merge verification (default: current branch) |
+| `/maat:tldr` | Plain-English status (Seshat): what's happening now, and how far the whole roadmap has come |
 
 ### Investigation and escalation
 
@@ -467,6 +468,7 @@ Everything lives in `maat.json` at your repo root:
 | `adr.dir` | `["adr", "docs/adr"]` | One path or an array. Use an array for per-domain ADR folders so each root is covered visibly — the cache reports a per-root count, and a `…:0` tells you a folder is empty or misnamed. |
 | `adr.autoSync` | `false` | Fast-forward the ADR submodule (`git merge --ff-only`) before each build so newly published ADRs land without updating the plugin. Fails soft, skipped when `$CI` is set. Off by default because an auto-advance dirties the working tree. |
 | `adr.upstreamBranch` | `"main"` | The branch `autoSync` fast-forwards to. |
+| `reportStyle` | `"full"` | Set to `"lean"` for shorter review reports: less prose per finding, no narrative preamble. The `RECEIPT:` block — verdict, every finding, severities, evidence tags, checks — is full-fidelity in both modes; nothing that gates ever shrinks. See PRINCIPLES.md rule 10. Toggle any time, no re-init needed. |
 
 ---
 

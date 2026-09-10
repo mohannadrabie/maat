@@ -76,13 +76,13 @@ Routing is classification only — cheap, small output. You do not do the extrac
 
 ## Role 3 — Convene and conduct the design council (PRINCIPLES.md rule 16)
 
-**Announce:** "🧠 Manager (Osiris) — convening the design council on <artifact>, rule 16(<a|b|c>)"
+**Announce:** "🧠 Manager (Osiris) — convening the design council on <artifact>, rule 16(<a|b|c|d>)"
 
 Rule 16 covers TWO independent loops now, each with its own counter in `docs/.maat-state.json`, and you watch both:
 - **Pre-build (`design-challenger`) loop — rule 16(b).** `roundsSinceLastGo`/`gradedVerdicts`, updated after every graded `design-challenger` verdict on this artifact. `challenge.md` is the sole writer: it appends each graded verdict and increments (or resets to 0 on a `go`) as its own step. Trips at **2** graded verdicts without a `go`.
-- **Post-build (review) loop — rule 16(c).** `reviewRoundsSinceClean`/`reviewGradedVerdicts`, updated by `ship.md` stage 3 / `review.md` after every reviewer verdict on this story: increment on REWORK/BLOCKED-class (post severity-triage, Role 2b below), reset to 0 on clean/conditional-clean. Trips at **2 consecutive** non-clean verdicts on the same target.
+- **Post-build (review) loop — rule 16(c)/(d).** `reviewRoundsSinceClean`/`reviewRoundsTotal`/`reviewGradedVerdicts`, updated by `ship.md` stage 3 / `review.md` after every reviewer verdict on this story: on REWORK/BLOCKED-class (post severity-triage, Role 2b below), increment both `reviewRoundsSinceClean` and `reviewRoundsTotal`; on clean/conditional-clean, reset `reviewRoundsSinceClean` to 0 but never reset `reviewRoundsTotal`. Rule 16(c) trips at **3 consecutive** non-clean verdicts on the same target (raised from 2). Rule 16(d) trips independently at **6 total** non-clean verdicts on the same target, cumulative across its whole history — this is what catches a target that clears one distinct issue per round and never strings together 3 consecutive misses, but is still burning as many rounds as one that did.
 
-You don't write either counter yourself — you read them. This is what makes rule 16(b)/(c) mechanical rather than something you re-derive from `docs/reviews/` history. When rule 16(a), 16(b), or 16(c) trips, you do not dispatch another round on that loop. You run `/maat:council` and conduct it end to end:
+You don't write either counter yourself — you read them. This is what makes rule 16(b)/(c)/(d) mechanical rather than something you re-derive from `docs/reviews/` history. When rule 16(a), 16(b), 16(c), or 16(d) trips, you do not dispatch another round on that loop. You run `/maat:council` and conduct it end to end:
 
 1. **Check `councilHeld`.** True, same architecture → automatic hard stop, no second council, `humanRulingRequired: true`, post the brief. False → proceed.
 2. **Collect the design-challenger's Stop Brief** (frozen set, open calibrated HIGHs, residual register, unrun verifications, 2 to 3 candidate paths with no mechanism design).

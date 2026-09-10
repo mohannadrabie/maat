@@ -9,6 +9,7 @@ Orient the user to maat. Do **no** work — this is a menu, not a task. Keep it 
 - **Initialized?** `maat.json` and `docs/PRINCIPLES.md` present → "✅ set up"; else "⚠️ not set up — run `/maat:init`".
 - **ADR location:** `./adr/` submodule, `docs/adr/`, or none.
 - **ADR cache:** the `📊 ADR cache …` line from `node docs/adr-cache.mjs` (HIT / MISS / NONE).
+- **Report style:** `maat.json → reportStyle` — "full" (default) or "lean" (shorter review-report prose; the RECEIPT block is unaffected either way — see PRINCIPLES.md rule 10).
 
 ## 2. Two ways to run the flow
 - **Orchestrated (recommended):** `/maat:ship <story>` — the **Manager (Osiris)** conducts intake → plan → build → review → verify → audit → merge-handoff, invoking each agent and stopping at your approval and at every gate.

@@ -10,9 +10,10 @@ Convene the **design council** on: $ARGUMENTS
 Automatically, conducted by the Manager, the moment PRINCIPLES.md rule 16 trips — from EITHER loop, pre-build or post-build:
 - **16(a)** a round's fix demonstrably reverses something an earlier round's CLEAN/SURVIVES established, or
 - **16(b)** (pre-build `design-challenger` loop) 2 graded verdicts pass without a `go`, counted by verdict, never by filename, or
-- **16(c)** (post-build review loop — `/maat:review` / `/maat:ship` stage 3) 2 consecutive REWORK/BLOCKED-class verdicts land on the same review target without an intervening clean/conditional-clean verdict, counted the same way.
+- **16(c)** (post-build review loop — `/maat:review` / `/maat:ship` stage 3) 3 consecutive REWORK/BLOCKED-class verdicts land on the same review target without an intervening clean/conditional-clean verdict, counted the same way (raised from 2 to 3), or
+- **16(d)** (post-build review loop) 6 total REWORK/BLOCKED-class verdicts land on the same review target, counted cumulatively across that target's whole history and never reset by an intervening clean/conditional-clean verdict — catches a target that clears one distinct issue per round without ever stringing together 3 consecutive misses, but is still taking as long as one that did.
 
-Whichever trigger fired, name it verbatim in the Path-Forward Brief's `**Trigger:**` line. A 16(c) council still seats the same three specialists — the review deadlock is reframed as "should this shape exist as reviewed, and what does each fix path cost" rather than re-litigated finding by finding; that reframing is exactly why council, not another review round, breaks the loop.
+Whichever trigger fired, name it verbatim in the Path-Forward Brief's `**Trigger:**` line. A 16(c)/16(d) council still seats the same three specialists — the review deadlock is reframed as "should this shape exist as reviewed, and what does each fix path cost" rather than re-litigated finding by finding; that reframing is exactly why council, not another review round, breaks the loop.
 
 **The council runs ONCE per artifact per architecture.** Read `docs/.maat-state.json`:
 - `councilHeld` is false → convene.
@@ -53,7 +54,7 @@ This is the artifact a human reads in 90 seconds and rules on. Never longer than
 ## Path-Forward Brief — <artifact> — <YYYY-MM-DD>
 
 **Council verdict:** GO | NO-GO   ·  **Rounds spent:** <n>  ·  **Feature code written so far:** <n> lines
-**Trigger:** rule 16(<a|b>) — <one line>
+**Trigger:** rule 16(<a|b|c|d>) — <one line>
 
 ### Business impact
 - **What users cannot do today:** <one line, in user terms, not system terms>
